@@ -8,6 +8,12 @@ Versioning: [SemVer](https://semver.org/).
 
 ### Added
 
+**M5 — Hardening (in progress)**
+- `benchmarks/run.py`: offline ingest + retrieve latency (p50/p90/p95/p99), cost projection from published list prices
+- `benchmarks/results/latest.{json,md}`: committed artifacts
+- `docs/benchmarks.md`: measured vs projected, honest gaps
+- tests: benchmark helpers (percentile, summarize, tokenizer estimate)
+
 **M1 — Local RAG (deterministic core)**
 - `app/core`: pydantic-settings config, deterministic ids, JSON logging
 - `app/rag/chunker.py`: recursive chunker, version-tagged, deterministic

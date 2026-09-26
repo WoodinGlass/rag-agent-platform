@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-09-26T17:33:19+00:00",
+  "config": {
+    "n": 100,
+    "k": 5,
+    "chunk_size": 200,
+    "embedder": "fake",
+    "warmup": 10,
+    "corpus_size": 12,
+    "eval_set_size": 15
+  },
+  "ingest": {
+    "total_ms": 3.469,
+    "per_doc_ms": 0.289
+  },
+  "retrieve": {
+    "n": 100,
+    "mean_ms": 2.188,
+    "p50_ms": 2.067,
+    "p90_ms": 2.257,
+    "p95_ms": 3.168,
+    "p99_ms": 4.154,
+    "min_ms": 1.834,
+    "max_ms": 4.18
+  },
+  "cost_model": {
+    "note": "Projection only. Measured runs use FakeEmbedder + FakeLLM (zero API cost). Token counts use whitespace tokenizer.",
+    "prices_usd_per_1m_tokens": {
+      "embedding_usd_per_1m_tokens": 0.02,
+      "llm_input_usd_per_1m_tokens": 0.15,
+      "llm_output_usd_per_1m_tokens": 0.6
+    },
+    "assumptions": {
+      "context_tokens_per_query": 200,
+      "output_tokens_per_query": 80
+    },
+    "corpus_tokens_estimated": 369,
+    "corpus_embedding_cost_usd": 7e-06,
+    "avg_question_tokens": 7.0,
+    "per_query_cost_usd": 7.9e-05,
+    "cost_per_1k_queries_usd": 0.079
+  }
+}

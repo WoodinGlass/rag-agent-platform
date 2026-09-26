@@ -215,8 +215,8 @@ Latest report: `evals/reports/retrieval_latest.json`
 | Faithfulness (M4) | >= 0.85 | - |
 | Answer relevancy (M4) | >= 0.80 | - |
 | Context precision (M4) | >= 0.75 | - |
-| p95 latency (query) | <= 2.5 s | - |
-| Cost / 1k queries | <= $0.50 | - |
+| p95 latency (retrieve) | <= 2.5 s | **3.168 ms** — see [`docs/benchmarks.md`](docs/benchmarks.md) |
+| Cost / 1k queries | <= $0.50 | **$0.079** — projected, see [`docs/benchmarks.md`](docs/benchmarks.md) |
 
 ---
 
@@ -282,13 +282,16 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] `docs/runbooks/` for 3 failures (LLM timeout, store down, schema violation)
 - [x] **Exit criteria:** CI green on `main`, eval report published, changelog updated
 
-### M5+ (backlog — post-MVP)
+### M5 — Hardening [in progress]
 
-- [ ] Streaming ingestion (Kafka / S3 events)
+- [x] Cost model + benchmarks — see [`docs/benchmarks.md`](docs/benchmarks.md)
 - [ ] Reranker (cross-encoder) behind flag
 - [ ] Multi-tenant isolation + auth
-- [ ] Cost model + benchmarks (`docs/benchmarks.md`)
 - [ ] OpenTelemetry traces
+
+### M6+ (backlog — post-MVP)
+
+- [ ] Streaming ingestion (Kafka / S3 events)
 - [ ] Swap state machine -> LangGraph (interface already compatible)
 
 ---
