@@ -180,13 +180,13 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Unit tests (chunker edge cases, embedder mock)
 - [x] **Exit criteria:** `pytest -m "not integration"` green, retrieval hit-rate@5 = **1.000** on demo set
 
-### M2 — Agent + tools
+### M2 — Agent + tools ✅
 
-- [ ] LangGraph agent with tool registry (`register(name, fn)`)
-- [ ] 3 tools: `search_docs`, `calculator`, `web_fetch` (timeout + retry)
-- [ ] Structured JSON output enforced via Pydantic schema
-- [ ] Pure logic vs IO separated (tools pure, adapters in `tools/adapters/`)
-- [ ] **Exit criteria:** agent answers multi-hop question in demo notebook, schema validation passes
+- [x] LangGraph agent with tool registry (`register(name, fn)`)
+- [x] 3 tools: `search_docs`, `calculator`, `web_fetch` (timeout + retry)
+- [x] Structured JSON output enforced via Pydantic schema
+- [x] Pure logic vs IO separated (tools pure, adapters in `tools/adapters/`)
+- [x] **Exit criteria:** agent answers multi-hop question in demo notebook, schema validation passes
 
 ### M3 — API + Docker
 
