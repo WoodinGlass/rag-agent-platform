@@ -27,12 +27,14 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 ## Tech stack
 
 - **Runtime:** Python 3.11+, FastAPI, Uvicorn
-- **Agent loop:** deterministic state machine (offline-testable); LangGraph-ready interface
+- **Agent loop:** two backends behind one `AgentBackend` protocol — a deterministic state machine (default) and a LangGraph `StateGraph` (opt-in via `AGENT_BACKEND=langgraph`)
 - **LLM providers:** OpenAI, Anthropic (pluggable via `LLM` protocol; `FakeLLM` for tests)
 - **Vector store:** Chroma (local) / Qdrant (service) / MemoryStore (tests)
+- **Reranker:** Identity (default), Fake (heuristic for tests), Cross-encoder (opt-in via `[rerank]`)
 - **Schemas:** Pydantic v2 (`extra="forbid"` for contract enforcement)
-- **Eval:** retrieval hit-rate@k now; Ragas (faithfulness + relevancy) in M4
-- **Observability:** structured JSON logs + correlation ID; `/metrics` endpoint; OpenTelemetry traces (opt-in)
+- **Eval:** offline retrieval metrics (hit-rate, MRR, precision, recall) on every PR; Ragas (faithfulness, answer relevancy, context precision) via LLM judge on weekly/manual runs
+- **Observability:** structured JSON logs + correlation id; `/metrics` endpoint; OpenTelemetry traces (opt-in)
+- **Auth:** opt-in API-key multi-tenant (X-API-Key)
 - **Packaging:** `pyproject.toml` (single source of truth)
 - **Infra:** Docker + docker-compose, GitHub Actions CI
 
@@ -61,9 +63,11 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 | **Payload vs pipeline** | Payload = documents + embeddings; Pipeline = chunk → embed → retrieve → generate | Clear separation for testing |
 | **Storage tier** | Small structured: SQLite (dev) / Postgres (prod). Vectors: Chroma → Qdrant | No refactor when scaling |
 | **Ingestion mode** | Batch first; streaming later behind flag | MVP velocity |
-| **Idempotency key** | `sha256(file_bytes) + chunker_version` | Re-ingest is a no-op |
-| **Agent loop** | State machine, not LangGraph (yet) | Fully offline-testable; `Agent.run()` signature stable |
+| **Idempotency key** | `sha256(file_bytes) + chunker_version` (+ tenant namespace) | Re-ingest is a no-op |
+| **Agent loop** | Two backends, one protocol; state machine default, LangGraph opt-in | Choice without rewrite; parity-tested |
 | **Pure vs IO** | Tools pure; IO in `tools/adapters/` | Unit tests never touch network/disk |
+| **Multi-tenant** | Opt-in; tenant-scoped doc ids + store filter | Single-tenant deploy stays simple |
+| **Tracing** | Opt-in; no-op default; lazy SDK | Zero cost when off |
 | **Failure modes** | LLM timeout → retry w/ jitter. Store down → circuit breaker. API → 503 + CID in logs | See `docs/runbooks/` |
 
 ---
@@ -73,20 +77,34 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 ```text
 rag-agent-platform/
 ├── app/
-│   ├── agents/              # agent loop, registry, schema, prompts
-│   ├── rag/                 # chunker, embedder, store, pipeline
+│   ├── agents/              # agent loop(s), registry, schema, prompts, bootstrap
+│   │   ├── agent.py         # state machine backend (default)
+│   │   ├── langgraph_backend.py  # StateGraph backend (opt-in)
+│   │   ├── backend.py       # AgentBackend protocol
+│   │   ├── bootstrap.py     # config-driven factory
+│   │   ├── llm.py           # LLM protocol + FakeLLM
+│   │   ├── prompts.py       # versioned system prompt + tool renderer
+│   │   ├── registry.py      # ToolRegistry
+│   │   └── schema.py        # AgentOutput / Citation / ToolCall
+│   ├── rag/                 # chunker, embedder, store, pipeline, reranker
 │   ├── tools/               # tool implementations + IO adapters
-│   ├── api/                 # FastAPI routers, schemas, deps, middleware
-│   ├── core/                # config, logging, ids, metrics
-│   └── main.py              # application entrypoint
-├── evals/                   # hit-rate@k CLI + demo corpus + reports
+│   │   ├── adapters/        # rag.py, http.py (impure boundaries)
+│   │   ├── base.py          # Tool protocol
+│   │   ├── calculator.py    # ast-safe arithmetic
+│   │   ├── search_docs.py   # wraps RagPipeline
+│   │   └── web_fetch.py     # HTTP GET with timeout + retry
+│   ├── api/                 # routes, schemas, deps, middleware
+│   ├── core/                # config, logging, ids, metrics, auth, tracing
+│   └── main.py              # application entrypoint (lifespan)
+├── benchmarks/              # offline latency + cost model + reranker delta
+├── evals/                   # retrieval + Ragas CLI, corpora, reports
 ├── tests/
 │   ├── unit/                # fast, offline (default)
 │   └── integration/         # end-to-end (marker: integration)
-├── docker/                  # Dockerfile + docker-compose.yml
-├── docs/                    # architecture.md + runbooks/
+├── docker/                  # Dockerfile (multi-stage) + docker-compose.yml
+├── docs/                    # architecture.md + runbooks/ + benchmarks.md
 ├── scripts/                 # agent_demo.py, ingest_demo.py
-├── .github/workflows/       # ci.yml
+├── .github/workflows/       # ci.yml, eval.yml
 ├── .env.example
 ├── CHANGELOG.md
 ├── LICENSE
@@ -140,8 +158,8 @@ By default the API runs single-tenant: every request is treated as the
 `TENANT_KEYS=key1:tenantA,key2:tenantB` to require an `X-API-Key`
 header. Ingestion is tenant-scoped (same bytes in two tenants produce
 different `doc_id`s). Store-level retrieval accepts an optional
-`tenant_id` filter; wiring tenant-per-request through the agent loop is
-on the M5 roadmap (documented in CHANGELOG).
+`tenant_id` filter. `X-API-Key` is validated at the HTTP boundary;
+missing or invalid keys return `401`.
 
 ```bash
 # auth enabled: missing or bad key -> 401
@@ -195,6 +213,24 @@ Validation errors follow FastAPI's default `{"detail": [...]}` shape.
 
 ---
 
+## Agent backends
+
+Two implementations behind a single `AgentBackend` protocol
+(`app/agents/backend.py`). Both expose `run(question) -> AgentOutput`.
+
+| Backend | Config value | When to use |
+|---|---|---|
+| State machine (default) | `state_machine` | Offline, deterministic; zero framework deps |
+| LangGraph `StateGraph` | `langgraph` | When you want graph-based orchestration, retries, or plan to add nodes (retrieval-as-a-node, rerank node, guardrails) |
+
+Parity is enforced by tests: for the same scripted LLM output, both
+backends return the same `AgentOutput` (see
+`tests/unit/test_langgraph_backend.py`). The LangGraph backend is
+optional — enabling it only requires the `[langgraph]` extra and setting
+`AGENT_BACKEND=langgraph`.
+
+---
+
 ## Docker
 
 ```bash
@@ -208,7 +244,7 @@ curl -s -X POST localhost:8000/query \
   -d '{"question":"hi"}'
 ```
 
-The compose stack also boots **Qdrant** on ports `6333` (HTTP/dashboard) and `6334` (gRPC). Set `VECTOR_BACKEND=qdrant` once the Qdrant adapter lands (M5+); today the API defaults to `memory` so the stack works with zero config.
+The compose stack also boots **Qdrant** on ports `6333` (HTTP/dashboard) and `6334` (gRPC). Set `VECTOR_BACKEND=qdrant` once the Qdrant adapter lands (M6+); today the API defaults to `memory` so the stack works with zero config.
 
 Config surface: see `.env.example`. All knobs come from env — nothing is hardcoded. The image runs as a non-root user and ships a `HEALTHCHECK`.
 
@@ -251,26 +287,39 @@ pytest -m "not integration"   # fast, offline (default)
 pytest -m integration         # end-to-end (in-process)
 ```
 
-Every tool call is boundary-guarded: tool exceptions and invalid LLM JSON become `ToolCall(ok=False)` or a corrective feedback message — the agent loop never crashes.
+Coverage threshold is 85% (enforced in CI). Type checking runs with mypy
+on every push. Every tool call is boundary-guarded: tool exceptions and
+invalid LLM JSON become `ToolCall(ok=False)` or a corrective feedback
+message — the agent loop never crashes.
 
 ## Evaluation
 
+Two modes, run separately:
+
 ```bash
-python -m evals.run --dataset evals/data/demo.jsonl --out evals/reports/
+# offline retrieval metrics (deterministic, no API key)
+python -m evals.ragas_eval --mode retrieval --k 5 --out-dir evals/reports
+
+# generation metrics via Ragas + LLM judge (needs OPENAI_API_KEY)
+python -m evals.ragas_eval --mode ragas --k 5 --out-dir evals/reports
 ```
 
-Latest report: `evals/reports/retrieval_latest.json`
+Latest report: [`evals/reports/latest.md`](evals/reports/latest.md)
 
 | Metric | Target | Latest |
 |---|---|---|
-| Retrieval hit-rate@5 (M1) | >= 0.80 | **1.000** (12/12) |
-| Multi-hop agent success (M2) | pass | yes (`scripts/agent_demo.py`) |
-| Faithfulness (M4) | >= 0.85 | - |
-| Answer relevancy (M4) | >= 0.80 | - |
-| Context precision (M4) | >= 0.75 | - |
+| Retrieval hit-rate@5 | >= 0.80 | **1.0000** (15/15) |
+| Retrieval MRR@5 | >= 0.60 | **0.7189** |
+| Retrieval recall@5 | >= 0.80 | **0.9667** |
+| Retrieval precision@5 | informational | 0.2533 |
 | p95 latency (retrieve) | <= 2.5 s | **3.168 ms** — see [`docs/benchmarks.md`](docs/benchmarks.md) |
 | Cost / 1k queries | <= $0.50 | **$0.079** — projected, see [`docs/benchmarks.md`](docs/benchmarks.md) |
 | Reranker (fake) delta | informational | see [`docs/benchmarks.md`](docs/benchmarks.md) § Reranker delta |
+| Faithfulness (Ragas) | >= 0.85 | *set `OPENAI_API_KEY` to enable* |
+| Answer relevancy (Ragas) | >= 0.80 | *set `OPENAI_API_KEY` to enable* |
+| Context precision (Ragas) | >= 0.75 | *set `OPENAI_API_KEY` to enable* |
+
+Retrieval eval runs on every PR (offline, free). Generation eval runs weekly + on-demand via `.github/workflows/eval.yml`; it skips cleanly when `OPENAI_API_KEY` is absent.
 
 ---
 
@@ -287,6 +336,7 @@ mitigation -> prevention -> signals):
    contract or LLM output violates schema; hard fail with cid
 
 Architecture overview: [`docs/architecture.md`](docs/architecture.md).
+Benchmarks and cost model: [`docs/benchmarks.md`](docs/benchmarks.md).
 
 ---
 
@@ -327,7 +377,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Config via `pydantic-settings`, no hardcoded strings
 - [x] **Exit criteria:** `docker compose up` -> `curl /query` returns valid JSON (verified in CI)
 
-### M4 — CI + eval report ✅
+### M4 — CI + eval report [done]
 
 - [x] GitHub Actions: lint (ruff) -> type (mypy) -> coverage -> docker smoke
 - [x] Integration tests behind `integration` marker (offline, in-process)
@@ -336,21 +386,22 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] `docs/runbooks/` for 3 failures (LLM timeout, store down, schema violation)
 - [x] **Exit criteria:** CI green on `main`, eval report published, changelog updated
 
-### M5 — Hardening [in progress]
+### M5 — Hardening [done]
 
 - [x] Cost model + benchmarks — see [`docs/benchmarks.md`](docs/benchmarks.md)
 - [x] Reranker (cross-encoder) behind flag — interface + offline impls + delta measured
 - [x] Multi-tenant isolation + auth — opt-in `X-API-Key`, tenant-scoped ingest + store filter
 - [x] OpenTelemetry traces — opt-in, no-op default, lazy SDK
 
-### M6+ (backlog — post-MVP)
+### M6 — Extensibility [in progress]
 
+- [x] LangGraph backend (opt-in) — `AgentBackend` protocol, parity-tested with the state machine
 - [ ] Streaming ingestion (Kafka / S3 events)
-- [ ] Swap state machine -> LangGraph (interface already compatible)
+- [ ] OTLP exporter + collector example (`docker/otel-collector.yml`)
+- [ ] Tenant-per-request through the agent loop (contextvar)
 
 ---
 
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
-
