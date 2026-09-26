@@ -23,7 +23,7 @@ jobs:
           pip install -e ".[dev,http,vector,otel,langgraph]"
 
       - name: Lint (ruff)
-        run: ruff check app/ tests/ evals/ scripts/
+        run: ruff check app/ tests/ evals/ scripts/ benchmarks/
 
       - name: Type check (mypy)
         run: mypy app/
