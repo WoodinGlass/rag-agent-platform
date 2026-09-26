@@ -1,0 +1,45 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# build
+dist/
+build/
+*.egg
+
+# data
+data/
+*.sqlite
+*.db
+*.parquet
+*.faiss
+*.chroma/
+chroma_db/
+
+# logs
+logs/
+*.log
+
+# docs previews (keep specific pngs)
+*.png
+!docs/preview/*.png
+
+# platform
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
