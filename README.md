@@ -31,10 +31,10 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 - **LLM providers:** OpenAI, Anthropic (pluggable via `LLM` protocol; `FakeLLM` for tests)
 - **Vector store:** Chroma (local) / Qdrant (service) / MemoryStore (tests)
 - **Schemas:** Pydantic v2 (`extra="forbid"` for contract enforcement)
-- **Eval:** retrieval hit-rate@k now; Ragas (faithfulness + relevancy) in M4
+- **Eval:** offline retrieval metrics (hit-rate, MRR, precision, recall) on every PR; Ragas (faithfulness, relevancy, context precision) via LLM judge on weekly/manual runs
 - **Observability:** structured JSON logs + correlation ID; `/metrics` endpoint
 - **Packaging:** `pyproject.toml` (single source of truth)
-- **Infra:** Docker + docker-compose, GitHub Actions CI
+- **Infra:** Docker + docker-compose, GitHub Actions CI (lint / type / coverage / docker smoke) + Eval workflow
 
 ---
 
@@ -73,20 +73,24 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 ```text
 rag-agent-platform/
 ├── app/
-│   ├── agents/              # agent loop, registry, schema, prompts
+│   ├── agents/              # agent loop, registry, schema, prompts, bootstrap
 │   ├── rag/                 # chunker, embedder, store, pipeline
 │   ├── tools/               # tool implementations + IO adapters
-│   ├── api/                 # FastAPI routers, schemas, deps, middleware
+│   ├── api/                 # FastAPI routes, schemas, deps, middleware
 │   ├── core/                # config, logging, ids, metrics
-│   └── main.py              # application entrypoint
-├── evals/                   # hit-rate@k CLI + demo corpus + reports
+│   └── main.py              # application entrypoint (lifespan)
+├── evals/
+│   ├── metrics.py           # pure retrieval metrics (hit, MRR, P, R)
+│   ├── ragas_eval.py        # unified CLI (retrieval | ragas modes)
+│   ├── data/                # corpus.jsonl, demo.jsonl, eval_set.jsonl
+│   └── reports/             # latest.{json,md}, badge.json (committed)
 ├── tests/
 │   ├── unit/                # fast, offline (default)
 │   └── integration/         # end-to-end (marker: integration)
 ├── docker/                  # Dockerfile + docker-compose.yml
 ├── docs/                    # architecture.md + runbooks/
 ├── scripts/                 # agent_demo.py, ingest_demo.py
-├── .github/workflows/       # ci.yml
+├── .github/workflows/       # ci.yml (lint/type/coverage/docker), eval.yml
 ├── .env.example
 ├── CHANGELOG.md
 ├── LICENSE
@@ -198,25 +202,35 @@ pytest -m "not integration"   # fast, offline (default)
 pytest -m integration         # end-to-end (in-process)
 ```
 
-Every tool call is boundary-guarded: tool exceptions and invalid LLM JSON become `ToolCall(ok=False)` or a corrective feedback message — the agent loop never crashes.
+Coverage (threshold 85%) and type checking (mypy) run in CI. Every tool call is boundary-guarded: tool exceptions and invalid LLM JSON become `ToolCall(ok=False)` or a corrective feedback message — the agent loop never crashes.
 
 ## Evaluation
 
+Two modes, run separately:
+
 ```bash
-python -m evals.run --dataset evals/data/demo.jsonl --out evals/reports/
+# offline retrieval metrics (deterministic, no API key)
+python -m evals.ragas_eval --mode retrieval --k 5 --out-dir evals/reports
+
+# generation metrics via Ragas + LLM judge (needs OPENAI_API_KEY)
+python -m evals.ragas_eval --mode ragas --k 5 --out-dir evals/reports
 ```
 
-Latest report: `evals/reports/retrieval_latest.json`
+Latest report: [`evals/reports/latest.md`](evals/reports/latest.md)
 
 | Metric | Target | Latest |
 |---|---|---|
-| Retrieval hit-rate@5 (M1) | >= 0.80 | **1.000** (12/12) |
-| Multi-hop agent success (M2) | pass | yes (`scripts/agent_demo.py`) |
-| Faithfulness (M4) | >= 0.85 | - |
-| Answer relevancy (M4) | >= 0.80 | - |
-| Context precision (M4) | >= 0.75 | - |
+| Retrieval hit-rate@5 | >= 0.80 | **1.0000** (15/15) |
+| Retrieval MRR@5 | >= 0.60 | **0.7189** |
+| Retrieval recall@5 | >= 0.80 | **0.9667** |
+| Retrieval precision@5 | informational | 0.2533 |
+| Faithfulness (Ragas) | >= 0.85 | *set `OPENAI_API_KEY` to enable* |
+| Answer relevancy (Ragas) | >= 0.80 | *set `OPENAI_API_KEY` to enable* |
+| Context precision (Ragas) | >= 0.75 | *set `OPENAI_API_KEY` to enable* |
 | p95 latency (query) | <= 2.5 s | - |
 | Cost / 1k queries | <= $0.50 | - |
+
+Retrieval eval runs on every PR (offline, free). Generation eval runs weekly + on-demand via `.github/workflows/eval.yml`; it skips cleanly when `OPENAI_API_KEY` is absent.
 
 ---
 
@@ -273,7 +287,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Config via `pydantic-settings`, no hardcoded strings
 - [x] **Exit criteria:** `docker compose up` -> `curl /query` returns valid JSON (verified in CI)
 
-### M4 — CI + eval report ✅
+### M4 — CI + eval report [done]
 
 - [x] GitHub Actions: lint (ruff) -> type (mypy) -> coverage -> docker smoke
 - [x] Integration tests behind `integration` marker (offline, in-process)
@@ -296,4 +310,3 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
-
