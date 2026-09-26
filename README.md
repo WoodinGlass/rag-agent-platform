@@ -38,24 +38,16 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 ---
 
 ## Architecture
-┌─────────────┐
-docs ──────▶ │ Ingest │──▶ chunk ──▶ embed ──▶ vector store
-└─────────────┘ │
-▼
-query ─────▶ ┌─────────────┐ retrieve ┌──────────────────┐
-│ FastAPI │─────────────▶│ RAG pipeline │
-│ /query │ └────────┬─────────┘
-└─────────────┘ │
-▼
-┌──────────────────┐
-│ Agent (tools) │
-│ · search_docs │
-│ · calculator │
-│ · web_fetch │
-└────────┬─────────┘
-▼
-structured JSON output
-(Pydantic validated)
+
+```text
+ [docs] --> [Ingest] --> chunk --> embed --> [Vector Store]
+                                                    |
+                                                    v
+ [query] --> [FastAPI] --> [RAG Pipeline] --> [Agent + Tools]
+                                                    |
+                                                    v
+                                        [Structured JSON output]
+```
 
 ### Design decisions (Phase 0 pre-flight)
 
@@ -71,32 +63,35 @@ structured JSON output
 ---
 
 ## Repository layout
+
+```text
 rag-agent-platform/
 ├── app/
-│ ├── agents/ # agent graph, tool registry, prompts
-│ ├── rag/ # chunker, embedder, retriever, reranker
-│ ├── tools/ # tool implementations (pure + IO separated)
-│ ├── api/ # FastAPI routers, schemas, deps
-│ ├── core/ # config, logging, ids, errors
-│ └── main.py
-├── evals/ # Ragas datasets + reports
+│   ├── agents/          # agent graph, tool registry, prompts
+│   ├── rag/             # chunker, embedder, retriever, reranker
+│   ├── tools/           # tool implementations (pure + IO separated)
+│   ├── api/             # FastAPI routers, schemas, deps
+│   ├── core/            # config, logging, ids, errors
+│   └── main.py
+├── evals/               # Ragas datasets + reports
 ├── tests/
-│ ├── unit/ # fast, no IO (default)
-│ └── integration/ # needs Docker / DB (marker: integration)
+│   ├── unit/            # fast, no IO (default)
+│   └── integration/     # needs Docker / DB (marker: integration)
 ├── docker/
-│ ├── Dockerfile
-│ └── docker-compose.yml
+│   ├── Dockerfile
+│   └── docker-compose.yml
 ├── docs/
-│ ├── architecture.md
-│ └── runbooks/ # 3 most common failures
-├── scripts/ # one-off utilities (ingest_demo.py, etc.)
-├── .github/workflows/ # ci.yml, eval.yml
+│   ├── architecture.md
+│   └── runbooks/        # 3 most common failures
+├── scripts/             # one-off utilities (ingest_demo.py, etc.)
+├── .github/workflows/   # ci.yml, eval.yml
 ├── .env.example
 ├── .gitignore
 ├── CHANGELOG.md
 ├── LICENSE
 ├── pyproject.toml
 └── README.md
+```
 
 ---
 
@@ -105,14 +100,16 @@ rag-agent-platform/
 Each milestone ships **runnable, tested, and documented** code — not stubs.
 
 ### M1 — Local RAG (deterministic core)
+
 - [ ] `app/rag/`: chunker (recursive + version), embedder (provider-agnostic), Chroma store
 - [ ] Idempotent ingest: `sha256(file) + chunker_version` as key
 - [ ] `scripts/ingest_demo.py` ingests a sample corpus
 - [ ] Retrieval endpoint returns top-k with scores + source spans
 - [ ] Unit tests (chunker edge cases, embedder mock)
-- [ ] **Exit criteria:** `pytest -m "not integration"` green, retrieval hit-rate @5 ≥ 0.8 on demo set
+- [ ] **Exit criteria:** `pytest -m "not integration"` green, retrieval hit-rate@5 ≥ 0.8 on demo set
 
 ### M2 — Agent + tools
+
 - [ ] LangGraph agent with tool registry (`register(name, fn)`)
 - [ ] 3 tools: `search_docs`, `calculator`, `web_fetch` (timeout + retry)
 - [ ] Structured JSON output enforced via Pydantic schema
@@ -120,14 +117,16 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [ ] **Exit criteria:** agent answers multi-hop question in demo notebook, schema validation passes
 
 ### M3 — API + Docker
+
 - [ ] FastAPI routes: `/ingest`, `/query`, `/healthz`, `/metrics`
 - [ ] Correlation ID middleware, structured JSON logs
 - [ ] `docker/Dockerfile` (multi-stage), `docker-compose.yml` (API + Qdrant)
 - [ ] `.env.example` fully documents every knob
 - [ ] Config via `pydantic-settings`, no hardcoded strings
-- [ ] **Exit criteria:** `docker compose up` → curl `/query` returns valid JSON
+- [ ] **Exit criteria:** `docker compose up` → `curl /query` returns valid JSON
 
 ### M4 — CI + eval report
+
 - [ ] GitHub Actions: lint (ruff) → type (mypy) → unit test → build → smoke
 - [ ] Integration tests behind `integration` marker (testcontainers)
 - [ ] Ragas eval job: faithfulness, answer relevancy, context precision
@@ -136,6 +135,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [ ] **Exit criteria:** CI green on `main`, eval report published, changelog updated
 
 ### M5+ (backlog — post-MVP)
+
 - [ ] Streaming ingestion (Kafka / S3 events)
 - [ ] Reranker (cross-encoder) behind flag
 - [ ] Multi-tenant isolation + auth
@@ -164,39 +164,59 @@ uvicorn app.main:app --reload
 curl -X POST localhost:8000/query \
   -H "Content-Type: application/json" \
   -d '{"question": "What is RAG?"}'
-Quickstart (Docker)
-bash
-docker compose -f docker/docker-compose.yml up --build
-Quickstart (Google Colab)
-See notebooks/00_setup_colab.ipynb — mounts repo, sets secrets, runs smoke test.
-
-Testing
-bash
-pytest -m "not integration"   # fast, no external deps
-pytest -m integration         # spins up Docker (testcontainers)
-Evaluation
-bash
-python -m evals.run --dataset evals/data/demo.jsonl --out evals/reports/
-Latest report: evals/reports/latest.md
-
-Metric	Target	Latest
-Faithfulness	≥ 0.85	–
-Answer relevancy	≥ 0.80	–
-Context precision	≥ 0.75	–
-p95 latency (query)	≤ 2.5 s	–
-Cost / 1k queries	≤ $0.50	–
-Failure modes & runbooks
-See docs/runbooks/:
-
-llm-timeout.md — retry with jitter, fallback model, cache hit
-
-vector-store-down.md — circuit breaker, degraded retrieval
-
-schema-violation.md — hard fail, correlation ID, sample payload
-
-Contributing
-Conventional commits. One PR = one milestone checkbox. pre-commit runs ruff + mypy.
 ```
 
-License
-MIT — see LICENSE.
+## Quickstart (Docker)
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+```
+
+## Quickstart (Google Colab)
+
+See `notebooks/00_setup_colab.ipynb` — mounts repo, sets secrets, runs smoke test.
+
+---
+
+## Testing
+
+```bash
+pytest -m "not integration"   # fast, no external deps
+pytest -m integration         # spins up Docker (testcontainers)
+```
+
+## Evaluation
+
+```bash
+python -m evals.run --dataset evals/data/demo.jsonl --out evals/reports/
+```
+
+Latest report: `evals/reports/latest.md`
+
+| Metric | Target | Latest |
+|---|---|---|
+| Faithfulness | ≥ 0.85 | – |
+| Answer relevancy | ≥ 0.80 | – |
+| Context precision | ≥ 0.75 | – |
+| p95 latency (query) | ≤ 2.5 s | – |
+| Cost / 1k queries | ≤ $0.50 | – |
+
+---
+
+## Failure modes & runbooks
+
+See `docs/runbooks/`:
+
+1. `llm-timeout.md` — retry with jitter, fallback model, cache hit
+2. `vector-store-down.md` — circuit breaker, degraded retrieval
+3. `schema-violation.md` — hard fail, correlation ID, sample payload
+
+---
+
+## Contributing
+
+Conventional commits. One PR = one milestone checkbox. `pre-commit` runs ruff + mypy.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
