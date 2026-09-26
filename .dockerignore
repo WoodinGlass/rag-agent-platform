@@ -1,0 +1,43 @@
+# VCS / IDE
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# tests / evals reports (dev only, not needed in image)
+tests/
+evals/reports/
+notebooks/
+
+# data / secrets
+data/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite
+*.parquet
+
+# docker
+docker/*.yml
+docker/Dockerfile
+Dockerfile
+.dockerignore
+
+# docs / meta
+docs/
+CHANGELOG.md
+CONTRIBUTING.md

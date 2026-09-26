@@ -1,0 +1,74 @@
+# Local development stack: API + Qdrant (vector store).
+#
+# Usage (from repo root):
+#   docker compose -f docker/docker-compose.yml up --build
+#   curl -s localhost:8000/healthz
+#   curl -s -X POST localhost:8000/query -H 'Content-Type: application/json' \
+#        -d '{"question":"What is RAG?"}'
+#
+# Qdrant UI: http://localhost:6333/dashboard
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        EXTRAS: "http,vector"
+    image: rag-agent-platform:dev
+    container_name: rag-api
+    ports:
+      - "8000:8000"
+    environment:
+      # --- LLM ---
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+
+      # --- Embedder / Vector ---
+      EMBEDDER_PROVIDER: ${EMBEDDER_PROVIDER:-fake}
+      EMBEDDER_DIM: ${EMBEDDER_DIM:-128}
+      VECTOR_BACKEND: ${VECTOR_BACKEND:-memory}
+
+      # --- Chunking / Retrieval ---
+      CHUNK_SIZE: ${CHUNK_SIZE:-200}
+      TOP_K: ${TOP_K:-5}
+
+      # --- Logging ---
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_JSON: ${LOG_JSON:-true}
+    volumes:
+      # Persist Chroma if you flip VECTOR_BACKEND=chroma
+      - api-data:/app/data
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  qdrant:
+    image: qdrant/qdrant:v1.10.1
+    container_name: rag-qdrant
+    ports:
+      - "6333:6333"   # HTTP + dashboard
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      # Qdrant image has no curl; use its own HTTP via wget or the /readyz endpoint
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:6333/readyz >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  api-data:
+  qdrant-data:
