@@ -1,0 +1,15 @@
+{"id":"q01","question":"What is retrieval augmented generation?","expected_ids":["doc_rag"],"expected_answer":"RAG combines a retriever that fetches relevant documents with a generator that produces answers grounded in those documents."}
+{"id":"q02","question":"How does an AI agent decide which tools to call?","expected_ids":["doc_agent","doc_langgraph"],"expected_answer":"An agent uses an LLM to decide which tools to call in a loop until a goal is reached."}
+{"id":"q03","question":"Which vector database is good for local prototyping?","expected_ids":["doc_chroma"],"expected_answer":"Chroma is a local vector database often used for prototyping before migrating to Qdrant."}
+{"id":"q04","question":"How does FastAPI validate incoming request bodies?","expected_ids":["doc_fastapi","doc_pydantic"],"expected_answer":"FastAPI uses Pydantic for request validation and schema definition."}
+{"id":"q05","question":"What metrics does Ragas compute?","expected_ids":["doc_evals"],"expected_answer":"Ragas computes faithfulness, answer relevancy, and context precision."}
+{"id":"q06","question":"How do ingestion pipelines become idempotent?","expected_ids":["doc_idempotency"],"expected_answer":"Idempotency is achieved with a stable key such as a content hash combined with a version tag."}
+{"id":"q07","question":"What is recursive text chunking?","expected_ids":["doc_chunking"],"expected_answer":"Recursive chunking splits documents respecting paragraph and sentence boundaries."}
+{"id":"q08","question":"How to keep Docker runtime images small?","expected_ids":["doc_docker"],"expected_answer":"Multi-stage builds separate build-time tooling from the final runtime layer."}
+{"id":"q09","question":"What runs on every push in CI?","expected_ids":["doc_ci"],"expected_answer":"CI runs linters, type checkers, and tests automatically on every push."}
+{"id":"q10","question":"How is a correlation identifier used in logs?","expected_ids":["doc_correlation"],"expected_answer":"A correlation id is attached to a request so all log lines related to it can be grouped."}
+{"id":"q11","question":"What reduces hallucination in LLM answers?","expected_ids":["doc_rag"],"expected_answer":"Constraining the LLM to retrieved context reduces hallucination."}
+{"id":"q12","question":"What is the state machine model for agents?","expected_ids":["doc_langgraph"],"expected_answer":"LangGraph models an agent as a state machine of nodes and edges with cycles for tool loops."}
+{"id":"q13","question":"What does the FakeEmbedder do?","expected_ids":["doc_chunking"],"expected_answer":"FakeEmbedder provides deterministic offline embeddings for testing."}
+{"id":"q14","question":"Why use Pydantic for API schemas?","expected_ids":["doc_pydantic","doc_fastapi"],"expected_answer":"Pydantic provides data validation using Python type hints."}
+{"id":"q15","question":"What is the role of a retry with jitter in HTTP clients?","expected_ids":["doc_idempotency"],"expected_answer":"Retry with jitter avoids thundering herd by randomizing backoff."}

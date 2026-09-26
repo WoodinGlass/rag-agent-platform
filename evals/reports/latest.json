@@ -1,0 +1,554 @@
+{
+  "k": 5,
+  "n": 15,
+  "hit_rate": 1.0,
+  "mrr": 0.7189,
+  "precision": 0.2533,
+  "recall": 0.9667,
+  "per_query": [
+    {
+      "question": "What is retrieval augmented generation?",
+      "expected": [
+        "37520c5cc5aeb78ef4b8798af5f15412"
+      ],
+      "retrieved": [
+        "6057a79a4638110006192e8bb91e7d8b",
+        "7281cd00be865ddcc628b8ece6703212",
+        "e10f2bc75cb1560a58e71192e3a56722",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 0.25,
+      "precision": 0.2,
+      "recall": 1.0
+    },
+    {
+      "question": "How does an AI agent decide which tools to call?",
+      "expected": [
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "ce86a4a6e28d7b5caf688a8f47c23c0a"
+      ],
+      "retrieved": [
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "ce86a4a6e28d7b5caf688a8f47c23c0a",
+        "7281cd00be865ddcc628b8ece6703212",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 1.0,
+      "precision": 0.4,
+      "recall": 1.0
+    },
+    {
+      "question": "Which vector database is good for local prototyping?",
+      "expected": [
+        "844c4766d8c0cbf0d5a8f648e2722bd0"
+      ],
+      "retrieved": [
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "7281cd00be865ddcc628b8ece6703212",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "6057a79a4638110006192e8bb91e7d8b"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 1.0,
+      "precision": 0.4,
+      "recall": 1.0
+    },
+    {
+      "question": "How does FastAPI validate incoming request bodies?",
+      "expected": [
+        "f53ece5863f1e928f54924db81c943db",
+        "b80d8ce847332babc7023610d3a71fe3"
+      ],
+      "retrieved": [
+        "d0b166c38d189f01549e6e957be8f79a",
+        "f53ece5863f1e928f54924db81c943db",
+        "7281cd00be865ddcc628b8ece6703212",
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "2b138375aeed6b36e0f404ac4457ac14"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 0.5,
+      "precision": 0.2,
+      "recall": 0.5
+    },
+    {
+      "question": "What metrics does Ragas compute?",
+      "expected": [
+        "e10f2bc75cb1560a58e71192e3a56722"
+      ],
+      "retrieved": [
+        "d0b166c38d189f01549e6e957be8f79a",
+        "e10f2bc75cb1560a58e71192e3a56722",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "f53ece5863f1e928f54924db81c943db",
+        "1ffc993fbe93b3706762db8d5d4dcc25"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 0.5,
+      "precision": 0.2,
+      "recall": 1.0
+    },
+    {
+      "question": "How do ingestion pipelines become idempotent?",
+      "expected": [
+        "2b138375aeed6b36e0f404ac4457ac14"
+      ],
+      "retrieved": [
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "2b138375aeed6b36e0f404ac4457ac14"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 0.3333,
+      "precision": 0.4,
+      "recall": 1.0
+    },
+    {
+      "question": "What is recursive text chunking?",
+      "expected": [
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "retrieved": [
+        "6057a79a4638110006192e8bb91e7d8b",
+        "f53ece5863f1e928f54924db81c943db",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "7281cd00be865ddcc628b8ece6703212",
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 0.2,
+      "precision": 0.2,
+      "recall": 1.0
+    },
+    {
+      "question": "How to keep Docker runtime images small?",
+      "expected": [
+        "1ffc993fbe93b3706762db8d5d4dcc25"
+      ],
+      "retrieved": [
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "7281cd00be865ddcc628b8ece6703212",
+        "37520c5cc5aeb78ef4b8798af5f15412"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 1.0,
+      "precision": 0.2,
+      "recall": 1.0
+    },
+    {
+      "question": "What runs on every push in CI?",
+      "expected": [
+        "6057a79a4638110006192e8bb91e7d8b"
+      ],
+      "retrieved": [
+        "6057a79a4638110006192e8bb91e7d8b",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "b49b54d5a3678c48b6093904ae4536a5"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 1.0,
+      "precision": 0.2,
+      "recall": 1.0
+    },
+    {
+      "question": "How is a correlation identifier used in logs?",
+      "expected": [
+        "7281cd00be865ddcc628b8ece6703212"
+      ],
+      "retrieved": [
+        "7281cd00be865ddcc628b8ece6703212",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "f53ece5863f1e928f54924db81c943db",
+        "6057a79a4638110006192e8bb91e7d8b"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 1.0,
+      "precision": 0.2,
+      "recall": 1.0
+    },
+    {
+      "question": "What reduces hallucination in LLM answers?",
+      "expected": [
+        "37520c5cc5aeb78ef4b8798af5f15412"
+      ],
+      "retrieved": [
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "f53ece5863f1e928f54924db81c943db",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "e10f2bc75cb1560a58e71192e3a56722"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 1.0,
+      "precision": 0.2,
+      "recall": 1.0
+    },
+    {
+      "question": "What is the state machine model for agents?",
+      "expected": [
+        "ce86a4a6e28d7b5caf688a8f47c23c0a"
+      ],
+      "retrieved": [
+        "f53ece5863f1e928f54924db81c943db",
+        "ce86a4a6e28d7b5caf688a8f47c23c0a",
+        "b80d8ce847332babc7023610d3a71fe3",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "844c4766d8c0cbf0d5a8f648e2722bd0"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 0.5,
+      "precision": 0.2,
+      "recall": 1.0
+    },
+    {
+      "question": "What does the FakeEmbedder do?",
+      "expected": [
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "retrieved": [
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "d0b166c38d189f01549e6e957be8f79a",
+        "6057a79a4638110006192e8bb91e7d8b",
+        "f53ece5863f1e928f54924db81c943db",
+        "1ffc993fbe93b3706762db8d5d4dcc25"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 0.5,
+      "precision": 0.2,
+      "recall": 1.0
+    },
+    {
+      "question": "Why use Pydantic for API schemas?",
+      "expected": [
+        "b80d8ce847332babc7023610d3a71fe3",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "retrieved": [
+        "f53ece5863f1e928f54924db81c943db",
+        "b80d8ce847332babc7023610d3a71fe3",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "1ffc993fbe93b3706762db8d5d4dcc25"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 1.0,
+      "precision": 0.4,
+      "recall": 1.0
+    },
+    {
+      "question": "What is the role of a retry with jitter in HTTP clients?",
+      "expected": [
+        "2b138375aeed6b36e0f404ac4457ac14"
+      ],
+      "retrieved": [
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "7281cd00be865ddcc628b8ece6703212",
+        "f53ece5863f1e928f54924db81c943db",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "b49b54d5a3678c48b6093904ae4536a5"
+      ],
+      "hit": 1.0,
+      "reciprocal_rank": 1.0,
+      "precision": 0.2,
+      "recall": 1.0
+    }
+  ],
+  "mode": "retrieval",
+  "inputs": {
+    "corpus": "evals/data/corpus.jsonl",
+    "eval_set": "evals/data/eval_set.jsonl",
+    "chunk_size": 200,
+    "embedder": "fake"
+  },
+  "queries": [
+    {
+      "id": "q01",
+      "question": "What is retrieval augmented generation?",
+      "expected_ids": [
+        "doc_rag"
+      ],
+      "expected_doc_ids": [
+        "37520c5cc5aeb78ef4b8798af5f15412"
+      ],
+      "retrieved_doc_ids": [
+        "6057a79a4638110006192e8bb91e7d8b",
+        "7281cd00be865ddcc628b8ece6703212",
+        "e10f2bc75cb1560a58e71192e3a56722",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "expected_answer": "RAG combines a retriever that fetches relevant documents with a generator that produces answers grounded in those documents."
+    },
+    {
+      "id": "q02",
+      "question": "How does an AI agent decide which tools to call?",
+      "expected_ids": [
+        "doc_agent",
+        "doc_langgraph"
+      ],
+      "expected_doc_ids": [
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "ce86a4a6e28d7b5caf688a8f47c23c0a"
+      ],
+      "retrieved_doc_ids": [
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "ce86a4a6e28d7b5caf688a8f47c23c0a",
+        "7281cd00be865ddcc628b8ece6703212",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "expected_answer": "An agent uses an LLM to decide which tools to call in a loop until a goal is reached."
+    },
+    {
+      "id": "q03",
+      "question": "Which vector database is good for local prototyping?",
+      "expected_ids": [
+        "doc_chroma"
+      ],
+      "expected_doc_ids": [
+        "844c4766d8c0cbf0d5a8f648e2722bd0"
+      ],
+      "retrieved_doc_ids": [
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "7281cd00be865ddcc628b8ece6703212",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "6057a79a4638110006192e8bb91e7d8b"
+      ],
+      "expected_answer": "Chroma is a local vector database often used for prototyping before migrating to Qdrant."
+    },
+    {
+      "id": "q04",
+      "question": "How does FastAPI validate incoming request bodies?",
+      "expected_ids": [
+        "doc_fastapi",
+        "doc_pydantic"
+      ],
+      "expected_doc_ids": [
+        "f53ece5863f1e928f54924db81c943db",
+        "b80d8ce847332babc7023610d3a71fe3"
+      ],
+      "retrieved_doc_ids": [
+        "d0b166c38d189f01549e6e957be8f79a",
+        "f53ece5863f1e928f54924db81c943db",
+        "7281cd00be865ddcc628b8ece6703212",
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "2b138375aeed6b36e0f404ac4457ac14"
+      ],
+      "expected_answer": "FastAPI uses Pydantic for request validation and schema definition."
+    },
+    {
+      "id": "q05",
+      "question": "What metrics does Ragas compute?",
+      "expected_ids": [
+        "doc_evals"
+      ],
+      "expected_doc_ids": [
+        "e10f2bc75cb1560a58e71192e3a56722"
+      ],
+      "retrieved_doc_ids": [
+        "d0b166c38d189f01549e6e957be8f79a",
+        "e10f2bc75cb1560a58e71192e3a56722",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "f53ece5863f1e928f54924db81c943db",
+        "1ffc993fbe93b3706762db8d5d4dcc25"
+      ],
+      "expected_answer": "Ragas computes faithfulness, answer relevancy, and context precision."
+    },
+    {
+      "id": "q06",
+      "question": "How do ingestion pipelines become idempotent?",
+      "expected_ids": [
+        "doc_idempotency"
+      ],
+      "expected_doc_ids": [
+        "2b138375aeed6b36e0f404ac4457ac14"
+      ],
+      "retrieved_doc_ids": [
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "2b138375aeed6b36e0f404ac4457ac14"
+      ],
+      "expected_answer": "Idempotency is achieved with a stable key such as a content hash combined with a version tag."
+    },
+    {
+      "id": "q07",
+      "question": "What is recursive text chunking?",
+      "expected_ids": [
+        "doc_chunking"
+      ],
+      "expected_doc_ids": [
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "retrieved_doc_ids": [
+        "6057a79a4638110006192e8bb91e7d8b",
+        "f53ece5863f1e928f54924db81c943db",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "7281cd00be865ddcc628b8ece6703212",
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "expected_answer": "Recursive chunking splits documents respecting paragraph and sentence boundaries."
+    },
+    {
+      "id": "q08",
+      "question": "How to keep Docker runtime images small?",
+      "expected_ids": [
+        "doc_docker"
+      ],
+      "expected_doc_ids": [
+        "1ffc993fbe93b3706762db8d5d4dcc25"
+      ],
+      "retrieved_doc_ids": [
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "7281cd00be865ddcc628b8ece6703212",
+        "37520c5cc5aeb78ef4b8798af5f15412"
+      ],
+      "expected_answer": "Multi-stage builds separate build-time tooling from the final runtime layer."
+    },
+    {
+      "id": "q09",
+      "question": "What runs on every push in CI?",
+      "expected_ids": [
+        "doc_ci"
+      ],
+      "expected_doc_ids": [
+        "6057a79a4638110006192e8bb91e7d8b"
+      ],
+      "retrieved_doc_ids": [
+        "6057a79a4638110006192e8bb91e7d8b",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "b49b54d5a3678c48b6093904ae4536a5"
+      ],
+      "expected_answer": "CI runs linters, type checkers, and tests automatically on every push."
+    },
+    {
+      "id": "q10",
+      "question": "How is a correlation identifier used in logs?",
+      "expected_ids": [
+        "doc_correlation"
+      ],
+      "expected_doc_ids": [
+        "7281cd00be865ddcc628b8ece6703212"
+      ],
+      "retrieved_doc_ids": [
+        "7281cd00be865ddcc628b8ece6703212",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "f53ece5863f1e928f54924db81c943db",
+        "6057a79a4638110006192e8bb91e7d8b"
+      ],
+      "expected_answer": "A correlation id is attached to a request so all log lines related to it can be grouped."
+    },
+    {
+      "id": "q11",
+      "question": "What reduces hallucination in LLM answers?",
+      "expected_ids": [
+        "doc_rag"
+      ],
+      "expected_doc_ids": [
+        "37520c5cc5aeb78ef4b8798af5f15412"
+      ],
+      "retrieved_doc_ids": [
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "f53ece5863f1e928f54924db81c943db",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "e10f2bc75cb1560a58e71192e3a56722"
+      ],
+      "expected_answer": "Constraining the LLM to retrieved context reduces hallucination."
+    },
+    {
+      "id": "q12",
+      "question": "What is the state machine model for agents?",
+      "expected_ids": [
+        "doc_langgraph"
+      ],
+      "expected_doc_ids": [
+        "ce86a4a6e28d7b5caf688a8f47c23c0a"
+      ],
+      "retrieved_doc_ids": [
+        "f53ece5863f1e928f54924db81c943db",
+        "ce86a4a6e28d7b5caf688a8f47c23c0a",
+        "b80d8ce847332babc7023610d3a71fe3",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "844c4766d8c0cbf0d5a8f648e2722bd0"
+      ],
+      "expected_answer": "LangGraph models an agent as a state machine of nodes and edges with cycles for tool loops."
+    },
+    {
+      "id": "q13",
+      "question": "What does the FakeEmbedder do?",
+      "expected_ids": [
+        "doc_chunking"
+      ],
+      "expected_doc_ids": [
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "retrieved_doc_ids": [
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "d0b166c38d189f01549e6e957be8f79a",
+        "6057a79a4638110006192e8bb91e7d8b",
+        "f53ece5863f1e928f54924db81c943db",
+        "1ffc993fbe93b3706762db8d5d4dcc25"
+      ],
+      "expected_answer": "FakeEmbedder provides deterministic offline embeddings for testing."
+    },
+    {
+      "id": "q14",
+      "question": "Why use Pydantic for API schemas?",
+      "expected_ids": [
+        "doc_pydantic",
+        "doc_fastapi"
+      ],
+      "expected_doc_ids": [
+        "b80d8ce847332babc7023610d3a71fe3",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "retrieved_doc_ids": [
+        "f53ece5863f1e928f54924db81c943db",
+        "b80d8ce847332babc7023610d3a71fe3",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "1ffc993fbe93b3706762db8d5d4dcc25"
+      ],
+      "expected_answer": "Pydantic provides data validation using Python type hints."
+    },
+    {
+      "id": "q15",
+      "question": "What is the role of a retry with jitter in HTTP clients?",
+      "expected_ids": [
+        "doc_idempotency"
+      ],
+      "expected_doc_ids": [
+        "2b138375aeed6b36e0f404ac4457ac14"
+      ],
+      "retrieved_doc_ids": [
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "7281cd00be865ddcc628b8ece6703212",
+        "f53ece5863f1e928f54924db81c943db",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "b49b54d5a3678c48b6093904ae4536a5"
+      ],
+      "expected_answer": "Retry with jitter avoids thundering herd by randomizing backoff."
+    }
+  ],
+  "generated_at": "2026-09-26T16:46:07+00:00"
+}

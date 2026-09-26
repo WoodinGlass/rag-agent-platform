@@ -22,7 +22,7 @@ build/
 *.egg
 
 # data
-data/
+/data/
 *.sqlite
 *.db
 *.parquet

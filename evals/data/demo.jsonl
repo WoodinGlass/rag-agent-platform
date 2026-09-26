@@ -1,0 +1,12 @@
+{"question":"What is retrieval augmented generation?","expected_ids":["doc_rag"]}
+{"question":"How does an AI agent decide which tools to call?","expected_ids":["doc_agent","doc_langgraph"]}
+{"question":"Which vector database is good for local prototyping?","expected_ids":["doc_chroma"]}
+{"question":"How does FastAPI validate incoming request bodies?","expected_ids":["doc_fastapi","doc_pydantic"]}
+{"question":"What metrics does Ragas compute?","expected_ids":["doc_evals"]}
+{"question":"How do ingestion pipelines become idempotent?","expected_ids":["doc_idempotency"]}
+{"question":"What is recursive text chunking?","expected_ids":["doc_chunking"]}
+{"question":"How to keep Docker runtime images small?","expected_ids":["doc_docker"]}
+{"question":"What runs on every push in CI?","expected_ids":["doc_ci"]}
+{"question":"How is a correlation identifier used in logs?","expected_ids":["doc_correlation"]}
+{"question":"What reduces hallucination in LLM answers?","expected_ids":["doc_rag"]}
+{"question":"What is the state machine model for agents?","expected_ids":["doc_langgraph"]}
