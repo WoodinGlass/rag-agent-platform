@@ -20,7 +20,13 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,http,vector,otel,langgraph]"
+          pip install -e ".[dev,http,vector,otel]"
+          # install langgraph explicitly (defensive: extras resolution
+          # can silently skip missing extras; this fails loudly if absent)
+          pip install "langgraph>=0.2"
+
+      - name: Verify langgraph import
+        run: python -c "import langgraph; print('langgraph OK')"
 
       - name: Lint (ruff)
         run: ruff check app/ tests/ evals/ scripts/ benchmarks/
