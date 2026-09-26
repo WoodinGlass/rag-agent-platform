@@ -122,11 +122,6 @@ curl -X POST localhost:8000/query \
 ```bash
 docker compose -f docker/docker-compose.yml up --build
 ```
-
-## Quickstart (Google Colab)
-
-See `notebooks/00_setup_colab.ipynb` — mounts repo, sets secrets, runs smoke test.
-
 ---
 
 ## Testing
