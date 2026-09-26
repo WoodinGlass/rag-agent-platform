@@ -95,55 +95,6 @@ rag-agent-platform/
 
 ---
 
-## Roadmap (production-scale)
-
-Each milestone ships **runnable, tested, and documented** code — not stubs.
-
-### M1 — Local RAG (deterministic core)
-
-- [ ] `app/rag/`: chunker (recursive + version), embedder (provider-agnostic), Chroma store
-- [ ] Idempotent ingest: `sha256(file) + chunker_version` as key
-- [ ] `scripts/ingest_demo.py` ingests a sample corpus
-- [ ] Retrieval endpoint returns top-k with scores + source spans
-- [ ] Unit tests (chunker edge cases, embedder mock)
-- [ ] **Exit criteria:** `pytest -m "not integration"` green, retrieval hit-rate@5 ≥ 0.8 on demo set
-
-### M2 — Agent + tools
-
-- [ ] LangGraph agent with tool registry (`register(name, fn)`)
-- [ ] 3 tools: `search_docs`, `calculator`, `web_fetch` (timeout + retry)
-- [ ] Structured JSON output enforced via Pydantic schema
-- [ ] Pure logic vs IO separated (tools pure, adapters in `tools/adapters/`)
-- [ ] **Exit criteria:** agent answers multi-hop question in demo notebook, schema validation passes
-
-### M3 — API + Docker
-
-- [ ] FastAPI routes: `/ingest`, `/query`, `/healthz`, `/metrics`
-- [ ] Correlation ID middleware, structured JSON logs
-- [ ] `docker/Dockerfile` (multi-stage), `docker-compose.yml` (API + Qdrant)
-- [ ] `.env.example` fully documents every knob
-- [ ] Config via `pydantic-settings`, no hardcoded strings
-- [ ] **Exit criteria:** `docker compose up` → `curl /query` returns valid JSON
-
-### M4 — CI + eval report
-
-- [ ] GitHub Actions: lint (ruff) → type (mypy) → unit test → build → smoke
-- [ ] Integration tests behind `integration` marker (testcontainers)
-- [ ] Ragas eval job: faithfulness, answer relevancy, context precision
-- [ ] `evals/reports/` committed as artifacts; README badge shows latest
-- [ ] `docs/runbooks/` for 3 top failures (LLM timeout, store down, bad schema)
-- [ ] **Exit criteria:** CI green on `main`, eval report published, changelog updated
-
-### M5+ (backlog — post-MVP)
-
-- [ ] Streaming ingestion (Kafka / S3 events)
-- [ ] Reranker (cross-encoder) behind flag
-- [ ] Multi-tenant isolation + auth
-- [ ] Cost model + benchmarks (`docs/benchmarks.md`)
-- [ ] OpenTelemetry traces
-
----
-
 ## Quickstart (local)
 
 ```bash
@@ -216,6 +167,57 @@ See `docs/runbooks/`:
 ## Contributing
 
 Conventional commits. One PR = one milestone checkbox. `pre-commit` runs ruff + mypy.
+
+---
+
+## Roadmap (production-scale)
+
+Each milestone ships **runnable, tested, and documented** code — not stubs.
+
+### M1 — Local RAG (deterministic core)
+
+- [ ] `app/rag/`: chunker (recursive + version), embedder (provider-agnostic), Chroma store
+- [ ] Idempotent ingest: `sha256(file) + chunker_version` as key
+- [ ] `scripts/ingest_demo.py` ingests a sample corpus
+- [ ] Retrieval endpoint returns top-k with scores + source spans
+- [ ] Unit tests (chunker edge cases, embedder mock)
+- [ ] **Exit criteria:** `pytest -m "not integration"` green, retrieval hit-rate@5 ≥ 0.8 on demo set
+
+### M2 — Agent + tools
+
+- [ ] LangGraph agent with tool registry (`register(name, fn)`)
+- [ ] 3 tools: `search_docs`, `calculator`, `web_fetch` (timeout + retry)
+- [ ] Structured JSON output enforced via Pydantic schema
+- [ ] Pure logic vs IO separated (tools pure, adapters in `tools/adapters/`)
+- [ ] **Exit criteria:** agent answers multi-hop question in demo notebook, schema validation passes
+
+### M3 — API + Docker
+
+- [ ] FastAPI routes: `/ingest`, `/query`, `/healthz`, `/metrics`
+- [ ] Correlation ID middleware, structured JSON logs
+- [ ] `docker/Dockerfile` (multi-stage), `docker-compose.yml` (API + Qdrant)
+- [ ] `.env.example` fully documents every knob
+- [ ] Config via `pydantic-settings`, no hardcoded strings
+- [ ] **Exit criteria:** `docker compose up` → `curl /query` returns valid JSON
+
+### M4 — CI + eval report
+
+- [ ] GitHub Actions: lint (ruff) → type (mypy) → unit test → build → smoke
+- [ ] Integration tests behind `integration` marker (testcontainers)
+- [ ] Ragas eval job: faithfulness, answer relevancy, context precision
+- [ ] `evals/reports/` committed as artifacts; README badge shows latest
+- [ ] `docs/runbooks/` for 3 top failures (LLM timeout, store down, bad schema)
+- [ ] **Exit criteria:** CI green on `main`, eval report published, changelog updated
+
+### M5+ (backlog — post-MVP)
+
+- [ ] Streaming ingestion (Kafka / S3 events)
+- [ ] Reranker (cross-encoder) behind flag
+- [ ] Multi-tenant isolation + auth
+- [ ] Cost model + benchmarks (`docs/benchmarks.md`)
+- [ ] OpenTelemetry traces
+
+---
 
 ## License
 
