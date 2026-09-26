@@ -66,6 +66,18 @@ class Settings(BaseSettings):
     # OTLP HTTP endpoint, e.g. http://otel-collector:4318/v1/traces
     otel_otlp_endpoint: str = "http://localhost:4318/v1/traces"
 
+    # --- Streaming ingestion (M6.4) ---
+    # Backend: "memory" (offline, tests) | "kafka" (opt-in via [kafka])
+    streaming_backend: Literal["memory", "kafka"] = "memory"
+    # How long a single poll waits for a new event before returning None.
+    streaming_poll_timeout_s: float = 1.0
+    # Retries per event before giving up (event is NOT committed on failure).
+    streaming_max_retries: int = 3
+    # LRU size for dedup. Events seen within this window are skipped.
+    streaming_dedup_window: int = 1024
+    # Idle sleep between empty polls (seconds).
+    streaming_idle_sleep_s: float = 0.05
+
     # --- Logging ---
     log_level: str = "INFO"
     log_json: bool = True
