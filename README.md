@@ -26,14 +26,14 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 ## Tech stack
 
 - **Runtime:** Python 3.11+, FastAPI, Uvicorn
-- **Orchestration:** LangChain / LangGraph
-- **LLM providers:** OpenAI, Anthropic (pluggable)
-- **Vector store:** Chroma (local dev) → Qdrant (prod)
-- **Schemas:** Pydantic v2
-- **Eval:** Ragas (retrieval + faithfulness), pytest markers
-- **Observability:** structured JSON logs + correlation ID, metrics endpoint
-- **Packaging:** `pyproject.toml` (single source of truth), `uv` / `pip`
-- **Infra:** Docker + docker-compose, GitHub Actions CI
+- **Agent loop:** deterministic state machine (offline-testable); LLM-as-decider. Interface is LangGraph-ready — swap-in later without changing `Agent.run()`
+- **LLM providers:** OpenAI, Anthropic (pluggable via `LLM` protocol; `FakeLLM` for tests)
+- **Vector store:** Chroma (local dev) → Qdrant (prod); `MemoryStore` for tests
+- **Schemas:** Pydantic v2 (`extra="forbid"` for contract enforcement)
+- **Eval:** retrieval hit-rate@k now; Ragas (faithfulness + relevancy) in M4
+- **Observability:** structured JSON logs + correlation ID; metrics endpoint in M3
+- **Packaging:** `pyproject.toml` (single source of truth), `pip install -e`
+- **Infra:** Docker + docker-compose (M3), GitHub Actions CI
 
 ---
 
@@ -43,21 +43,26 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
  [docs] --> [Ingest] --> chunk --> embed --> [Vector Store]
                                                     |
                                                     v
- [query] --> [FastAPI] --> [RAG Pipeline] --> [Agent + Tools]
+ [query] --> [FastAPI] --> [RAG Pipeline] --> [Agent Loop]
+                                                    |
+                                          plan -> tool_call -> observe -> finish
                                                     |
                                                     v
                                         [Structured JSON output]
+                                        (AgentOutput, Pydantic-validated)
 ```
 
 ### Design decisions (Phase 0 pre-flight)
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| **Deterministic vs non-deterministic** | Ingest + retrieval deterministic (hash-based idempotency); generation non-deterministic (UUID + dedup window) | Enables re-ingest without duplicates |
+| **Deterministic vs non-deterministic** | Ingest + retrieval deterministic (hash-based idempotency); generation non-deterministic | Enables re-ingest without duplicates |
 | **Payload vs pipeline** | Payload = documents + embeddings; Pipeline = chunk → embed → retrieve → generate | Clear separation for testing |
 | **Storage tier** | Small structured: SQLite (dev) / Postgres (prod). Unstructured: local FS → S3. Vectors: Chroma → Qdrant | No refactor when scaling |
 | **Ingestion mode** | Batch first (simple), streaming later behind flag | MVP velocity |
 | **Idempotency key** | `sha256(file_bytes) + chunker_version` | Re-ingest is a no-op |
+| **Agent loop** | State machine, not LangGraph (yet) | Fully offline-testable; deterministic; `Agent.run()` signature stable |
+| **Pure vs IO** | Tools pure; IO in `tools/adapters/` | Unit tests never touch network/disk |
 | **Failure modes** | LLM timeout → retry w/ jitter + fallback model. Vector store down → circuit breaker, cached retrieval. API down → 503 + correlation ID in logs | See `docs/runbooks/` |
 
 ---
@@ -67,24 +72,39 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 ```text
 rag-agent-platform/
 ├── app/
-│   ├── agents/          # agent graph, tool registry, prompts
-│   ├── rag/             # chunker, embedder, retriever, reranker
-│   ├── tools/           # tool implementations (pure + IO separated)
-│   ├── api/             # FastAPI routers, schemas, deps
-│   ├── core/            # config, logging, ids, errors
-│   └── main.py
-├── evals/               # Ragas datasets + reports
+│   ├── agents/              # agent loop, registry, schema, prompts
+│   │   ├── agent.py         # state machine: plan -> tool_call -> observe -> finish
+│   │   ├── bootstrap.py     # one-shot factory: pipeline + 3 tools + agent
+│   │   ├── llm.py           # LLM protocol, AgentStep schema, FakeLLM
+│   │   ├── prompts.py       # versioned system prompt + tool renderer
+│   │   ├── registry.py      # ToolRegistry (register / get / specs)
+│   │   └── schema.py        # AgentOutput, Citation, ToolCall (Pydantic)
+│   ├── rag/                 # chunker, embedder, store, pipeline
+│   │   ├── chunker.py       # recursive, version-tagged, deterministic
+│   │   ├── embedder.py      # Embedder ABC + FakeEmbedder + lazy OpenAIEmbedder
+│   │   ├── store.py         # VectorStore ABC + MemoryStore + lazy ChromaStore
+│   │   └── pipeline.py      # idempotent ingest + retrieve
+│   ├── tools/
+│   │   ├── adapters/        # impure boundaries (rag.py, http.py)
+│   │   ├── base.py          # Tool protocol (name, description, schema, callable)
+│   │   ├── calculator.py    # ast-safe arithmetic (no eval)
+│   │   ├── search_docs.py   # wraps RagPipeline.retrieve
+│   │   └── web_fetch.py     # HTTP GET w/ timeout + retry
+│   ├── api/                 # FastAPI routers, schemas, deps (M3)
+│   ├── core/                # config, logging, ids
+│   └── main.py              # application entrypoint (M3)
+├── evals/                   # hit-rate@k CLI + demo corpus + reports
 ├── tests/
-│   ├── unit/            # fast, no IO (default)
-│   └── integration/     # needs Docker / DB (marker: integration)
-├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
+│   ├── unit/                # fast, offline (default)
+│   └── integration/         # needs Docker / DB (marker: integration)
+├── docker/                  # Dockerfile + docker-compose.yml (M3)
 ├── docs/
 │   ├── architecture.md
-│   └── runbooks/        # 3 most common failures
-├── scripts/             # one-off utilities (ingest_demo.py, etc.)
-├── .github/workflows/   # ci.yml, eval.yml
+│   └── runbooks/            # 3 most common failures (M4)
+├── scripts/
+│   ├── agent_demo.py        # offline multi-hop demo
+│   └── ingest_demo.py       # offline ingest demo
+├── .github/workflows/       # ci.yml
 ├── .env.example
 ├── .gitignore
 ├── CHANGELOG.md
@@ -99,19 +119,22 @@ rag-agent-platform/
 
 ```bash
 # 1. install
-pip install -e ".[dev]"
+pip install -e ".[dev,http]"
 
 # 2. config
 cp .env.example .env
-# edit .env: OPENAI_API_KEY=...
+# edit .env if you want a real LLM (default is offline/fake)
 
 # 3. ingest demo corpus
-python scripts/ingest_demo.py
+python scripts/ingest_demo.py --query "What is RAG?"
 
-# 4. run API
+# 4. run the agent end-to-end (offline, no API key needed)
+python scripts/agent_demo.py
+
+# 5. run API (M3)
 uvicorn app.main:app --reload
 
-# 5. query
+# 6. query
 curl -X POST localhost:8000/query \
   -H "Content-Type: application/json" \
   -d '{"question": "What is RAG?"}'
@@ -128,9 +151,12 @@ docker compose -f docker/docker-compose.yml up --build
 ## Testing
 
 ```bash
-pytest -m "not integration"   # fast, no external deps
+pytest -m "not integration"   # fast, offline (default)
 pytest -m integration         # spins up Docker (testcontainers)
 ```
+
+Every tool call is boundary-guarded: tool exceptions and invalid LLM JSON become
+`ToolCall(ok=False)` or a corrective feedback message — the agent loop never crashes.
 
 ## Evaluation
 
@@ -143,6 +169,7 @@ Latest report: `evals/reports/retrieval_latest.json`
 | Metric | Target | Latest |
 |---|---|---|
 | Retrieval hit-rate@5 (M1) | ≥ 0.80 | **1.000** (12/12) |
+| Multi-hop agent success (M2) | pass | ✅ (`scripts/agent_demo.py`) |
 | Faithfulness (M4) | ≥ 0.85 | – |
 | Answer relevancy (M4) | ≥ 0.80 | – |
 | Context precision (M4) | ≥ 0.75 | – |
@@ -151,7 +178,7 @@ Latest report: `evals/reports/retrieval_latest.json`
 
 ---
 
-## Failure modes & runbooks
+## Failure modes & runbooks (M4)
 
 See `docs/runbooks/`:
 
@@ -176,17 +203,18 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] `app/rag/`: chunker (recursive + version), embedder (provider-agnostic), Chroma store
 - [x] Idempotent ingest: `sha256(file) + chunker_version` as key
 - [x] `scripts/ingest_demo.py` ingests a sample corpus
-- [x] Retrieval endpoint returns top-k with scores + source spans
+- [x] Retrieval returns top-k with scores + source spans
 - [x] Unit tests (chunker edge cases, embedder mock)
 - [x] **Exit criteria:** `pytest -m "not integration"` green, retrieval hit-rate@5 = **1.000** on demo set
 
 ### M2 — Agent + tools ✅
 
-- [x] LangGraph agent with tool registry (`register(name, fn)`)
-- [x] 3 tools: `search_docs`, `calculator`, `web_fetch` (timeout + retry)
-- [x] Structured JSON output enforced via Pydantic schema
-- [x] Pure logic vs IO separated (tools pure, adapters in `tools/adapters/`)
-- [x] **Exit criteria:** agent answers multi-hop question in demo notebook, schema validation passes
+- [x] Agent loop with tool registry (`register(tool)`), driven by an `LLM` protocol
+- [x] 3 tools: `search_docs`, `calculator`, `web_fetch` (timeout + retry, jitter backoff)
+- [x] Structured JSON output enforced via `AgentOutput` (Pydantic v2, `extra="forbid"`)
+- [x] Pure logic vs IO separated (`app/tools/*.py` pure; `app/tools/adapters/*.py` IO)
+- [x] Offline-testable: `FakeLLM` + `FakeEmbedder` + `MemoryStore`
+- [x] **Exit criteria:** multi-hop demo (`search_docs → calculator → finish`) returns valid `AgentOutput`; schema round-trip passes
 
 ### M3 — API + Docker
 
@@ -213,6 +241,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [ ] Multi-tenant isolation + auth
 - [ ] Cost model + benchmarks (`docs/benchmarks.md`)
 - [ ] OpenTelemetry traces
+- [ ] Optional: swap state machine → LangGraph (interface already compatible)
 
 ---
 
