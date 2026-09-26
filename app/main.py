@@ -60,6 +60,7 @@ def _build_stack(settings: Settings) -> AgentStack:
         embedder=embedder,
         store=store,
         chunk_size=settings.chunk_size,
+        backend=settings.agent_backend,
     )
 
 
