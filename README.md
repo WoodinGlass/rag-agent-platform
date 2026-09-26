@@ -26,14 +26,14 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 ## Tech stack
 
 - **Runtime:** Python 3.11+, FastAPI, Uvicorn
-- **Agent loop:** deterministic state machine (offline-testable); LLM-as-decider. Interface is LangGraph-ready — swap-in later without changing `Agent.run()`
+- **Agent loop:** deterministic state machine (offline-testable); LangGraph-ready interface
 - **LLM providers:** OpenAI, Anthropic (pluggable via `LLM` protocol; `FakeLLM` for tests)
-- **Vector store:** Chroma (local dev) → Qdrant (prod); `MemoryStore` for tests
+- **Vector store:** Chroma (local) / Qdrant (service) / MemoryStore (tests)
 - **Schemas:** Pydantic v2 (`extra="forbid"` for contract enforcement)
 - **Eval:** retrieval hit-rate@k now; Ragas (faithfulness + relevancy) in M4
-- **Observability:** structured JSON logs + correlation ID; metrics endpoint in M3
-- **Packaging:** `pyproject.toml` (single source of truth), `pip install -e`
-- **Infra:** Docker + docker-compose (M3), GitHub Actions CI
+- **Observability:** structured JSON logs + correlation ID; `/metrics` endpoint
+- **Packaging:** `pyproject.toml` (single source of truth)
+- **Infra:** Docker + docker-compose, GitHub Actions CI
 
 ---
 
@@ -45,7 +45,7 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
                                                     v
  [query] --> [FastAPI] --> [RAG Pipeline] --> [Agent Loop]
                                                     |
-                                          plan -> tool_call -> observe -> finish
+                                       plan -> tool_call -> observe -> finish
                                                     |
                                                     v
                                         [Structured JSON output]
@@ -56,14 +56,14 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| **Deterministic vs non-deterministic** | Ingest + retrieval deterministic (hash-based idempotency); generation non-deterministic | Enables re-ingest without duplicates |
+| **Deterministic vs non-deterministic** | Ingest + retrieval deterministic; generation non-deterministic | Enables re-ingest without duplicates |
 | **Payload vs pipeline** | Payload = documents + embeddings; Pipeline = chunk → embed → retrieve → generate | Clear separation for testing |
-| **Storage tier** | Small structured: SQLite (dev) / Postgres (prod). Unstructured: local FS → S3. Vectors: Chroma → Qdrant | No refactor when scaling |
-| **Ingestion mode** | Batch first (simple), streaming later behind flag | MVP velocity |
+| **Storage tier** | Small structured: SQLite (dev) / Postgres (prod). Vectors: Chroma → Qdrant | No refactor when scaling |
+| **Ingestion mode** | Batch first; streaming later behind flag | MVP velocity |
 | **Idempotency key** | `sha256(file_bytes) + chunker_version` | Re-ingest is a no-op |
-| **Agent loop** | State machine, not LangGraph (yet) | Fully offline-testable; deterministic; `Agent.run()` signature stable |
+| **Agent loop** | State machine, not LangGraph (yet) | Fully offline-testable; `Agent.run()` signature stable |
 | **Pure vs IO** | Tools pure; IO in `tools/adapters/` | Unit tests never touch network/disk |
-| **Failure modes** | LLM timeout → retry w/ jitter + fallback model. Vector store down → circuit breaker, cached retrieval. API down → 503 + correlation ID in logs | See `docs/runbooks/` |
+| **Failure modes** | LLM timeout → retry w/ jitter. Store down → circuit breaker. API → 503 + CID in logs | See `docs/runbooks/` |
 
 ---
 
@@ -73,40 +73,20 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 rag-agent-platform/
 ├── app/
 │   ├── agents/              # agent loop, registry, schema, prompts
-│   │   ├── agent.py         # state machine: plan -> tool_call -> observe -> finish
-│   │   ├── bootstrap.py     # one-shot factory: pipeline + 3 tools + agent
-│   │   ├── llm.py           # LLM protocol, AgentStep schema, FakeLLM
-│   │   ├── prompts.py       # versioned system prompt + tool renderer
-│   │   ├── registry.py      # ToolRegistry (register / get / specs)
-│   │   └── schema.py        # AgentOutput, Citation, ToolCall (Pydantic)
 │   ├── rag/                 # chunker, embedder, store, pipeline
-│   │   ├── chunker.py       # recursive, version-tagged, deterministic
-│   │   ├── embedder.py      # Embedder ABC + FakeEmbedder + lazy OpenAIEmbedder
-│   │   ├── store.py         # VectorStore ABC + MemoryStore + lazy ChromaStore
-│   │   └── pipeline.py      # idempotent ingest + retrieve
-│   ├── tools/
-│   │   ├── adapters/        # impure boundaries (rag.py, http.py)
-│   │   ├── base.py          # Tool protocol (name, description, schema, callable)
-│   │   ├── calculator.py    # ast-safe arithmetic (no eval)
-│   │   ├── search_docs.py   # wraps RagPipeline.retrieve
-│   │   └── web_fetch.py     # HTTP GET w/ timeout + retry
-│   ├── api/                 # FastAPI routers, schemas, deps (M3)
-│   ├── core/                # config, logging, ids
-│   └── main.py              # application entrypoint (M3)
+│   ├── tools/               # tool implementations + IO adapters
+│   ├── api/                 # FastAPI routers, schemas, deps, middleware
+│   ├── core/                # config, logging, ids, metrics
+│   └── main.py              # application entrypoint
 ├── evals/                   # hit-rate@k CLI + demo corpus + reports
 ├── tests/
 │   ├── unit/                # fast, offline (default)
-│   └── integration/         # needs Docker / DB (marker: integration)
-├── docker/                  # Dockerfile + docker-compose.yml (M3)
-├── docs/
-│   ├── architecture.md
-│   └── runbooks/            # 3 most common failures (M4)
-├── scripts/
-│   ├── agent_demo.py        # offline multi-hop demo
-│   └── ingest_demo.py       # offline ingest demo
+│   └── integration/         # end-to-end (marker: integration)
+├── docker/                  # Dockerfile + docker-compose.yml
+├── docs/                    # architecture.md + runbooks/
+├── scripts/                 # agent_demo.py, ingest_demo.py
 ├── .github/workflows/       # ci.yml
 ├── .env.example
-├── .gitignore
 ├── CHANGELOG.md
 ├── LICENSE
 ├── pyproject.toml
@@ -131,7 +111,7 @@ python scripts/ingest_demo.py --query "What is RAG?"
 # 4. run the agent end-to-end (offline, no API key needed)
 python scripts/agent_demo.py
 
-# 5. run API (M3)
+# 5. run API
 uvicorn app.main:app --reload
 
 # 6. query
@@ -148,15 +128,76 @@ docker compose -f docker/docker-compose.yml up --build
 
 ---
 
+## API
+
+All requests accept an optional `X-Request-ID` header; the value (or a generated one) is echoed back and attached to every log line.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/ingest` | Base64 bytes -> chunk -> embed -> store (idempotent on `sha256+version`) |
+| `POST` | `/query` | Run agent loop -> `AgentOutput` (structured JSON) |
+| `GET`  | `/healthz` | Liveness + shallow check of agent/pipeline wiring |
+| `GET`  | `/metrics` | In-process counters + latency histograms |
+| `GET`  | `/docs` | OpenAPI UI |
+
+### Example
+
+```bash
+# ingest
+CONTENT=$(printf 'The cat sat on the mat.' | base64 -w0)
+curl -s -X POST localhost:8000/ingest \
+  -H 'Content-Type: application/json' \
+  -d "{\"content_base64\":\"$CONTENT\",\"source\":\"cat.txt\"}"
+
+# query
+curl -s -X POST localhost:8000/query \
+  -H 'Content-Type: application/json' \
+  -H 'X-Request-ID: demo-1' \
+  -d '{"question":"What did the cat do?"}'
+
+# metrics
+curl -s localhost:8000/metrics
+```
+
+### Error format
+
+All 4xx/5xx return a JSON body:
+
+```json
+{"error": "internal_error", "detail": "...", "correlation_id": "abc123"}
+```
+
+Validation errors follow FastAPI's default `{"detail": [...]}` shape.
+
+---
+
+## Docker
+
+```bash
+# build + run API (MemoryStore, FakeLLM - fully offline)
+docker compose -f docker/docker-compose.yml up --build
+
+# in another shell
+curl -s localhost:8000/healthz
+curl -s -X POST localhost:8000/query \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"hi"}'
+```
+
+The compose stack also boots **Qdrant** on ports `6333` (HTTP/dashboard) and `6334` (gRPC). Set `VECTOR_BACKEND=qdrant` once the Qdrant adapter lands (M5+); today the API defaults to `memory` so the stack works with zero config.
+
+Config surface: see `.env.example`. All knobs come from env — nothing is hardcoded. The image runs as a non-root user and ships a `HEALTHCHECK`.
+
+---
+
 ## Testing
 
 ```bash
 pytest -m "not integration"   # fast, offline (default)
-pytest -m integration         # spins up Docker (testcontainers)
+pytest -m integration         # end-to-end (in-process)
 ```
 
-Every tool call is boundary-guarded: tool exceptions and invalid LLM JSON become
-`ToolCall(ok=False)` or a corrective feedback message — the agent loop never crashes.
+Every tool call is boundary-guarded: tool exceptions and invalid LLM JSON become `ToolCall(ok=False)` or a corrective feedback message — the agent loop never crashes.
 
 ## Evaluation
 
@@ -168,13 +209,13 @@ Latest report: `evals/reports/retrieval_latest.json`
 
 | Metric | Target | Latest |
 |---|---|---|
-| Retrieval hit-rate@5 (M1) | ≥ 0.80 | **1.000** (12/12) |
-| Multi-hop agent success (M2) | pass | ✅ (`scripts/agent_demo.py`) |
-| Faithfulness (M4) | ≥ 0.85 | – |
-| Answer relevancy (M4) | ≥ 0.80 | – |
-| Context precision (M4) | ≥ 0.75 | – |
-| p95 latency (query) | ≤ 2.5 s | – |
-| Cost / 1k queries | ≤ $0.50 | – |
+| Retrieval hit-rate@5 (M1) | >= 0.80 | **1.000** (12/12) |
+| Multi-hop agent success (M2) | pass | yes (`scripts/agent_demo.py`) |
+| Faithfulness (M4) | >= 0.85 | - |
+| Answer relevancy (M4) | >= 0.80 | - |
+| Context precision (M4) | >= 0.75 | - |
+| p95 latency (query) | <= 2.5 s | - |
+| Cost / 1k queries | <= $0.50 | - |
 
 ---
 
@@ -198,7 +239,7 @@ Conventional commits. One PR = one milestone checkbox. `pre-commit` runs ruff + 
 
 Each milestone ships **runnable, tested, and documented** code — not stubs.
 
-### M1 — Local RAG (deterministic core) ✅
+### M1 — Local RAG (deterministic core) [done]
 
 - [x] `app/rag/`: chunker (recursive + version), embedder (provider-agnostic), Chroma store
 - [x] Idempotent ingest: `sha256(file) + chunker_version` as key
@@ -207,27 +248,27 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Unit tests (chunker edge cases, embedder mock)
 - [x] **Exit criteria:** `pytest -m "not integration"` green, retrieval hit-rate@5 = **1.000** on demo set
 
-### M2 — Agent + tools ✅
+### M2 — Agent + tools [done]
 
 - [x] Agent loop with tool registry (`register(tool)`), driven by an `LLM` protocol
 - [x] 3 tools: `search_docs`, `calculator`, `web_fetch` (timeout + retry, jitter backoff)
 - [x] Structured JSON output enforced via `AgentOutput` (Pydantic v2, `extra="forbid"`)
 - [x] Pure logic vs IO separated (`app/tools/*.py` pure; `app/tools/adapters/*.py` IO)
 - [x] Offline-testable: `FakeLLM` + `FakeEmbedder` + `MemoryStore`
-- [x] **Exit criteria:** multi-hop demo (`search_docs → calculator → finish`) returns valid `AgentOutput`; schema round-trip passes
+- [x] **Exit criteria:** multi-hop demo (`search_docs -> calculator -> finish`) returns valid `AgentOutput`
 
-### M3 — API + Docker
+### M3 — API + Docker [done]
 
-- [ ] FastAPI routes: `/ingest`, `/query`, `/healthz`, `/metrics`
-- [ ] Correlation ID middleware, structured JSON logs
-- [ ] `docker/Dockerfile` (multi-stage), `docker-compose.yml` (API + Qdrant)
-- [ ] `.env.example` fully documents every knob
-- [ ] Config via `pydantic-settings`, no hardcoded strings
-- [ ] **Exit criteria:** `docker compose up` → `curl /query` returns valid JSON
+- [x] FastAPI routes: `/ingest`, `/query`, `/healthz`, `/metrics`
+- [x] Correlation ID middleware, structured JSON logs
+- [x] `docker/Dockerfile` (multi-stage), `docker-compose.yml` (API + Qdrant)
+- [x] `.env.example` fully documents every knob
+- [x] Config via `pydantic-settings`, no hardcoded strings
+- [x] **Exit criteria:** `docker compose up` -> `curl /query` returns valid JSON (verified in CI)
 
 ### M4 — CI + eval report
 
-- [ ] GitHub Actions: lint (ruff) → type (mypy) → unit test → build → smoke
+- [ ] GitHub Actions: lint (ruff) -> type (mypy) -> unit test -> build -> smoke
 - [ ] Integration tests behind `integration` marker (testcontainers)
 - [ ] Ragas eval job: faithfulness, answer relevancy, context precision
 - [ ] `evals/reports/` committed as artifacts; README badge shows latest
@@ -241,10 +282,11 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [ ] Multi-tenant isolation + auth
 - [ ] Cost model + benchmarks (`docs/benchmarks.md`)
 - [ ] OpenTelemetry traces
-- [ ] Optional: swap state machine → LangGraph (interface already compatible)
+- [ ] Swap state machine -> LangGraph (interface already compatible)
 
 ---
 
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
+

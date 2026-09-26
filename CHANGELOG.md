@@ -31,15 +31,31 @@ Versioning: [SemVer](https://semver.org/).
 - `app/agents/bootstrap.py`: one-shot factory wiring 3 tools + registry + agent
 - `scripts/agent_demo.py`: multi-hop demo (offline, FakeLLM)
 
+**M3 — API + Docker**
+- `app/api/schemas.py`: HTTP request/response Pydantic (extra=forbid)
+- `app/api/deps.py`: dependency wiring (agent, pipeline, settings, cid)
+- `app/api/middleware.py`: `X-Request-ID` propagation + structured access log
+- `app/api/routes.py`: `/ingest`, `/query`, `/healthz`, `/metrics`
+- `app/core/metrics.py`: in-process counters + latency histograms
+- `app/main.py`: lifespan wiring, error handler, correlation-id middleware
+- `tests/integration/test_api_lifespan.py`: end-to-end API tests
+- `docker/Dockerfile`: multi-stage, non-root user, healthcheck
+- `docker/docker-compose.yml`: API + Qdrant
+- `.dockerignore`: build context hygiene
+- `.env.example`: full config documentation
+
 ### Verified
-- `pytest -m "not integration"` green (~131 tests)
+- `pytest -m "not integration"` green (~189 tests)
+- `pytest -m integration` green (~9 tests)
 - Retrieval hit-rate@5 = **1.000** on demo set (12/12)
 - Idempotent ingest: re-running `ingest_demo.py` reports `skipped=12`
 - Multi-hop agent (search_docs → calculator → finish) yields valid `AgentOutput`
-- Tool failures and invalid LLM JSON are captured, not fatal
+- API smoke: `POST /ingest`, `POST /query`, `GET /healthz`, `GET /metrics` return valid JSON
+- Docker image builds and boots; `/healthz` reachable in container
 
 ### Infrastructure
-- CI workflow: ruff + pytest (unit) on push/PR
+- CI: lint (ruff) + unit + integration on push/PR
+- CI: docker job — compose validate + image build + container smoke test
 - Initial repo scaffold: README, LICENSE, pyproject, .env.example, .gitignore
 
 ## [0.1.0] - 2025-XX-XX
