@@ -20,7 +20,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,http]"
+          pip install -e ".[dev,http,vector]"
 
       - name: Lint
         run: ruff check app/ tests/ evals/ scripts/
@@ -42,12 +42,28 @@ jobs:
       - name: Validate compose file
         run: docker compose -f docker/docker-compose.yml config
 
-      - name: Build image (no push)
+      - name: Build image (load into local daemon, no push)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile
           push: false
+          load: true
           tags: rag-agent-platform:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Smoke test image
+        run: |
+          docker run -d --name rag-smoke -p 8000:8000 rag-agent-platform:ci
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8000/healthz; then
+              echo "healthz OK"
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8000/healthz | grep -q '"status"'
+          echo "--- container logs ---"
+          docker logs rag-smoke | tail -30
+          docker rm -f rag-smoke
