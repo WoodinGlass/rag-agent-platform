@@ -15,6 +15,7 @@ from app.agents.schema import AgentOutput
 from app.api.deps import AgentDep, CorrelationIdDep, PipelineDep, SettingsDep
 from app.api.schemas import (
     HealthResponse,
+    HealthStatus,
     IngestRequest,
     IngestResponse,
     QueryRequest,
@@ -108,7 +109,7 @@ def healthz(request: Request, settings: SettingsDep) -> HealthResponse:
     has_pipeline = getattr(request.app.state, "pipeline", None) is not None
 
     checks = {"agent": has_agent, "pipeline": has_pipeline}
-    status = "ok" if all(checks.values()) else "degraded"
+    status: HealthStatus = "ok" if all(checks.values()) else "degraded"
     return HealthResponse(
         status=status,
         version=APP_VERSION,

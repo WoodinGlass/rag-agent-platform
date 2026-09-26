@@ -64,13 +64,8 @@ show_error_codes = true
 pretty = true
 follow_imports = "silent"
 
-# --- lenient on tests: fixtures and Pydantic generics are noisy ---
+# --- optional third-party libs without stubs (only ones we import in app/) ---
+# (mypy overrides are matched against files it actually analyzes: app/ only.)
 [[tool.mypy.overrides]]
-module = ["tests.*"]
-disallow_untyped_defs = false
-warn_return_any = false
-
-# --- optional third-party libs without stubs (only ones we actually import) ---
-[[tool.mypy.overrides]]
-module = ["chromadb.*", "openai.*", "anthropic.*"]
+module = ["chromadb.*", "openai.*"]
 ignore_missing_imports = true
