@@ -102,7 +102,15 @@ class MemoryStore(VectorStore):
 
 
 class ChromaStore(VectorStore):
-    """Persistent local store. Requires chromadb (`.[vector]`)."""
+    """Persistent local store. Requires chromadb (`.[vector]`).
+
+    Note on typing: chromadb's public stubs accept a wide union that
+    includes numpy arrays. We pass plain Python lists of floats — the
+    runtime is fine, but `list` is invariant, so mypy can't narrow
+    `list[list[float]]` to the union. We keep the two payload variables
+    typed as `Any` for the call site and let runtime validation handle
+    shape errors.
+    """
 
     def __init__(self, path: str, collection: str = "rag_docs") -> None:
         try:
@@ -127,13 +135,11 @@ class ChromaStore(VectorStore):
         existing = set(self._col.get(ids=ids).get("ids", []))
         inserted = sum(1 for i in ids if i not in existing)
 
-        # Normalize to plain python floats so the stubs' union type
-        # (list[Sequence[float|int]] | ndarray | ...) resolves cleanly.
-        emb_list: list[list[float]] = [
-            [float(x) for x in e] for e in embeddings
-        ]
+        # Plain python floats; annotated `Any` for the chroma call site
+        # (see class docstring). Runtime-validated by chroma itself.
+        emb_list: Any = [[float(x) for x in e] for e in embeddings]
         docs: list[str] = [c.text for c in chunks]
-        metas: list[dict[str, Any]] = [
+        metas: Any = [
             {
                 "doc_id": c.doc_id,
                 "start": c.start,
@@ -154,7 +160,7 @@ class ChromaStore(VectorStore):
         return inserted
 
     def query(self, embedding: Sequence[float], k: int = 5) -> list[Hit]:
-        emb_list: list[float] = [float(x) for x in embedding]
+        emb_list: Any = [float(x) for x in embedding]
         res = self._col.query(
             query_embeddings=[emb_list],
             n_results=k,
