@@ -147,6 +147,54 @@ docker compose -f docker/docker-compose.yml up --build
 
 ---
 
+## Ingestion modes
+
+Two modes, chosen at the deployment level:
+
+- **Batch (default)** - `POST /ingest` pushes bytes through the pipeline
+  synchronously. Fine for small corpora and dev.
+- **Streaming** - a pull-based consumer loop ingests events from a
+  queue. Chosen with `STREAMING_BACKEND` (`memory` | `kafka`).
+
+Streaming is built around a small protocol so the loop and the
+broker are decoupled:
+
+```text
+EventSource (poll / commit / close)
+      |
+      v
+StreamingIngestor (poll -> handle -> commit)
+      |
+      v
+handler(event)  ->  pipeline.ingest(...)
+```
+
+Guarantees:
+
+- **At-least-once delivery.** An event is committed only after the
+  handler returns successfully.
+- **Bounded dedup.** Event ids seen within `STREAMING_DEDUP_WINDOW` are
+  skipped, so broker redelivery does not double-ingest.
+- **Retry with backoff.** Handler failures retry up to
+  `STREAMING_MAX_RETRIES`; on give-up the event is not committed.
+- **One event in flight.** Predictable memory; prefetch is a future
+  knob, not a hidden default.
+
+Adapters:
+
+- `InMemoryQueueSource` - offline, deterministic, used by the demo
+  and tests.
+- `KafkaEventSource` - opt-in via `[kafka]` extra; lazy import so
+  the package stays light when unused.
+
+Try it offline:
+
+```bash
+python scripts/stream_demo.py --n 5 --duplicates 2
+```
+
+---
+
 ## API
 
 All requests accept an optional `X-Request-ID` header; the value (or a generated one) is echoed back and attached to every log line.
@@ -411,12 +459,20 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Multi-tenant isolation + auth — opt-in `X-API-Key`, tenant-scoped ingest + store filter
 - [x] OpenTelemetry traces — opt-in, no-op default, lazy SDK
 
-### M6 — Extensibility [in progress]
+### M6 — Extensibility [done]
 
 - [x] LangGraph backend (opt-in) — `AgentBackend` protocol, parity-tested with the state machine
 - [x] Tenant-per-request through the agent loop — contextvar, no agent changes
 - [x] OTLP exporter + collector example — `docker/otel-collector.yml` (profile `otel`)
-- [ ] Streaming ingestion (Kafka / S3 events)
+- [x] Streaming ingestion — `EventSource` protocol, `InMemoryQueueSource` (offline),
+      `KafkaEventSource` (opt-in `[kafka]`), `StreamingIngestor` (at-least-once + dedup)
+
+### M7+ (backlog — post-MVP)
+
+- [ ] S3 event source adapter (`[s3]` extra)
+- [ ] Multi-partition parallel ingestors
+- [ ] Exactly-once via Kafka transactions
+- [ ] Prefetch queue for higher throughput
 
 ---
 

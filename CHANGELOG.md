@@ -60,6 +60,22 @@ Versioning: [SemVer](https://semver.org/).
 - `.env.example`, README § Observability updated
 - 4 new tests (exporter selection, enable path)
 
+**M6.4 — Streaming ingestion**
+- `app/streaming/events.py`: `Event` envelope (id, data, metadata)
+- `app/streaming/source.py`: `EventSource` protocol (poll / commit / close)
+- `app/streaming/memory_source.py`: `InMemoryQueueSource` (offline, mirrors Kafka)
+- `app/streaming/ingestor.py`: `StreamingIngestor` — at-least-once, bounded
+  dedup window (LRU), retry with backoff, one-in-flight backpressure
+- `app/streaming/kafka_source.py`: `KafkaEventSource` (lazy `[kafka]` extra)
+- `pyproject.toml`: new `[kafka]` extra; `pytest-asyncio` + `asyncio_mode=auto`
+- `app/core/config.py`: `streaming_backend`, `streaming_poll_timeout_s`,
+  `streaming_max_retries`, `streaming_dedup_window`, `streaming_idle_sleep_s`
+- `scripts/stream_demo.py`: offline end-to-end demo (producer + consumer)
+- `.env.example`: `STREAMING_*`, `KAFKA_*` knobs
+- README § Ingestion modes
+- 20+ tests: protocol conformance, poll/commit, dedup, backpressure,
+  retry, give-up, buffered records, import guard
+
 **M1 — Local RAG (deterministic core)**
 - `app/core`: pydantic-settings config, deterministic ids, JSON logging
 - `app/rag/chunker.py`: recursive chunker, version-tagged, deterministic
