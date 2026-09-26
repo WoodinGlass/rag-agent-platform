@@ -53,6 +53,7 @@ markers = [
 ]
 addopts = "-q"
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["app"]
