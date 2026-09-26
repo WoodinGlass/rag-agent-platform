@@ -25,8 +25,17 @@ Versioning: [SemVer](https://semver.org/).
   - Store-level `tenant_id` filter (MemoryStore, ChromaStore `where`)
   - `TenantDep` route dependency: `/ingest` fully isolated; 401 on bad key
   - 26 new tests (parse, resolve, HTTP, isolation)
-  - **Known gap (M5.4):** `/query` still uses the startup-bound pipeline;
+  - **Known gap (M5.5):** `/query` still uses the startup-bound pipeline;
     tenant-per-request through the agent loop is documented and scheduled
+- **M5.4 — OpenTelemetry traces (opt-in)**
+  - `app/core/tracing.py`: minimal span interface, NoopSpan, OTelSpan
+  - Lazy `opentelemetry-sdk` import; missing SDK -> warning + disabled
+  - New `[otel]` extra; CI installs it
+  - Instrumented: `http.ingest`, `http.query`, `pipeline.ingest`,
+    `pipeline.retrieve`, `agent.run`, `tool.<name>`
+  - Failures inside span never break the app
+  - 10 new tests (coercion, noop, enabled path when SDK present)
+  - README § Observability; `.env.example` updated
 
 **M1 — Local RAG (deterministic core)**
 - `app/core`: pydantic-settings config, deterministic ids, JSON logging

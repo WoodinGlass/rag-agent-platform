@@ -32,6 +32,7 @@ from app.api.schemas import (
 )
 from app.core.logging import get_logger
 from app.core.metrics import get_metrics
+from app.core.tracing import span
 
 router = APIRouter()
 log = get_logger(__name__)
@@ -49,6 +50,11 @@ def ingest(
     settings: SettingsDep,
     tenant: TenantDep,
 ) -> IngestResponse:
+    with span("http.ingest", tenant=tenant, source=req.source):
+        return _do_ingest(req, pipeline, tenant)
+
+
+def _do_ingest(req, pipeline, tenant):
     metrics = get_metrics()
     metrics.inc("ingest.requests")
 
@@ -91,6 +97,11 @@ def query(
     cid: CorrelationIdDep,
     tenant: TenantDep,
 ) -> QueryResponse:
+    with span("http.query", tenant=tenant, question_len=len(req.question)):
+        return _do_query(req, agent, cid)
+
+
+def _do_query(req, agent, cid):
     metrics = get_metrics()
     metrics.inc("query.requests")
 

@@ -20,6 +20,7 @@ from app.api.routes import router
 from app.api.schemas import ErrorResponse
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, new_correlation_id
+from app.core.tracing import configure_tracing
 from app.rag.embedder import get_embedder
 from app.rag.store import get_store
 
@@ -66,6 +67,11 @@ def _build_stack(settings: Settings) -> AgentStack:
 async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(level=settings.log_level, json_output=settings.log_json)
+    configure_tracing(
+        enabled=settings.otel_enabled,
+        service_name=settings.otel_service_name,
+        console_exporter=settings.otel_console_exporter,
+    )
     app.state.started_at = time.monotonic()
     app.state.stack = _build_stack(settings)
     app.state.agent = app.state.stack.agent

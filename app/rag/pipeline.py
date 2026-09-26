@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from app.core.ids import content_hash
 from app.core.ids import doc_id as make_doc_id
 from app.core.logging import get_logger
+from app.core.tracing import span
 from app.rag.chunker import CHUNKER_VERSION, chunk_text
 from app.rag.embedder import Embedder
 from app.rag.reranker import IdentityReranker, Reranker
@@ -64,38 +65,48 @@ class RagPipeline:
         metadata: dict | None = None,
         tenant_id: str | None = None,
     ) -> IngestResult:
-        chash = content_hash(data)
-        # Tenant-scoped id: same bytes in two tenants produce two doc_ids.
-        id_namespace = self.chunker_version if tenant_id is None else f"{tenant_id}::{self.chunker_version}"
-        did = make_doc_id(chash, id_namespace)
+        with span("pipeline.ingest", tenant=tenant_id, source=source) as s:
+            chash = content_hash(data)
+            # Tenant-scoped id: same bytes in two tenants produce two doc_ids.
+            id_namespace = (
+                self.chunker_version
+                if tenant_id is None
+                else f"{tenant_id}::{self.chunker_version}"
+            )
+            did = make_doc_id(chash, id_namespace)
 
-        if self.store.has_doc(did):
-            log.info("ingest.skip", extra={"doc_id": did, "reason": "already_present", "tenant": tenant_id})
-            return IngestResult(doc_id=did, inserted=0, skipped=True, n_chunks=0)
+            if self.store.has_doc(did):
+                log.info("ingest.skip", extra={"doc_id": did, "reason": "already_present", "tenant": tenant_id})
+                s.set_attribute("skipped", True)
+                return IngestResult(doc_id=did, inserted=0, skipped=True, n_chunks=0)
 
-        text = data.decode("utf-8", errors="replace")
-        chunk_meta: dict = {"source": source, **(metadata or {})}
-        if tenant_id is not None:
-            chunk_meta["tenant_id"] = tenant_id
+            text = data.decode("utf-8", errors="replace")
+            chunk_meta: dict = {"source": source, **(metadata or {})}
+            if tenant_id is not None:
+                chunk_meta["tenant_id"] = tenant_id
 
-        chunks = chunk_text(
-            text,
-            did,
-            size=self.chunk_size,
-            version=self.chunker_version,
-            metadata=chunk_meta,
-        )
-        if not chunks:
-            log.info("ingest.empty", extra={"doc_id": did, "tenant": tenant_id})
-            return IngestResult(doc_id=did, inserted=0, skipped=False, n_chunks=0)
+            chunks = chunk_text(
+                text,
+                did,
+                size=self.chunk_size,
+                version=self.chunker_version,
+                metadata=chunk_meta,
+            )
+            if not chunks:
+                log.info("ingest.empty", extra={"doc_id": did, "tenant": tenant_id})
+                s.set_attribute("empty", True)
+                return IngestResult(doc_id=did, inserted=0, skipped=False, n_chunks=0)
 
-        embeddings = self.embedder.embed([c.text for c in chunks])
-        inserted = self.store.upsert(chunks, embeddings)
-        log.info(
-            "ingest.ok",
-            extra={"doc_id": did, "n_chunks": len(chunks), "inserted": inserted, "tenant": tenant_id},
-        )
-        return IngestResult(doc_id=did, inserted=inserted, skipped=False, n_chunks=len(chunks))
+            embeddings = self.embedder.embed([c.text for c in chunks])
+            inserted = self.store.upsert(chunks, embeddings)
+            log.info(
+                "ingest.ok",
+                extra={"doc_id": did, "n_chunks": len(chunks), "inserted": inserted, "tenant": tenant_id},
+            )
+            s.set_attribute("doc_id", did)
+            s.set_attribute("n_chunks", len(chunks))
+            s.set_attribute("inserted", inserted)
+            return IngestResult(doc_id=did, inserted=inserted, skipped=False, n_chunks=len(chunks))
 
     def retrieve(
         self,
@@ -104,19 +115,24 @@ class RagPipeline:
         *,
         tenant_id: str | None = None,
     ) -> list[Hit]:
-        qvec = self.embedder.embed_one(question)
-        fetch_k = max(k, k * self.retrieve_multiplier)
-        candidates = self.store.query(qvec, k=fetch_k, tenant_id=tenant_id)
-        reranked = self.reranker.rerank(question, candidates, top_n=k)
-        log.info(
-            "retrieve.ok",
-            extra={
-                "k": k,
-                "fetch_k": fetch_k,
-                "n_candidates": len(candidates),
-                "n_returned": len(reranked),
-                "reranker": type(self.reranker).__name__,
-                "tenant": tenant_id,
-            },
-        )
-        return reranked
+        with span("pipeline.retrieve", k=k, tenant=tenant_id) as s:
+            qvec = self.embedder.embed_one(question)
+            fetch_k = max(k, k * self.retrieve_multiplier)
+            candidates = self.store.query(qvec, k=fetch_k, tenant_id=tenant_id)
+            reranked = self.reranker.rerank(question, candidates, top_n=k)
+            log.info(
+                "retrieve.ok",
+                extra={
+                    "k": k,
+                    "fetch_k": fetch_k,
+                    "n_candidates": len(candidates),
+                    "n_returned": len(reranked),
+                    "reranker": type(self.reranker).__name__,
+                    "tenant": tenant_id,
+                },
+            )
+            s.set_attribute("fetch_k", fetch_k)
+            s.set_attribute("n_candidates", len(candidates))
+            s.set_attribute("n_returned", len(reranked))
+            s.set_attribute("reranker", type(self.reranker).__name__)
+            return reranked

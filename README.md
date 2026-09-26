@@ -32,7 +32,7 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 - **Vector store:** Chroma (local) / Qdrant (service) / MemoryStore (tests)
 - **Schemas:** Pydantic v2 (`extra="forbid"` for contract enforcement)
 - **Eval:** retrieval hit-rate@k now; Ragas (faithfulness + relevancy) in M4
-- **Observability:** structured JSON logs + correlation ID; `/metrics` endpoint
+- **Observability:** structured JSON logs + correlation ID; `/metrics` endpoint; OpenTelemetry traces (opt-in)
 - **Packaging:** `pyproject.toml` (single source of truth)
 - **Infra:** Docker + docker-compose, GitHub Actions CI
 
@@ -214,6 +214,36 @@ Config surface: see `.env.example`. All knobs come from env — nothing is hardc
 
 ---
 
+## Observability
+
+Three layers, all opt-in and portfolio-friendly:
+
+1. **Structured JSON logs** - every request carries a correlation id
+   (`X-Request-ID`); grep one id to see the full story.
+2. **In-process metrics** - `/metrics` exposes counters + latency
+   histograms (ingest, query, tool calls).
+3. **OpenTelemetry traces** - off by default; enable with
+   `OTEL_ENABLED=true` and `pip install 'rag-agent-platform[otel]'`.
+
+Span shape when tracing is on:
+
+```text
+http.ingest            tenant, source, doc_id, n_chunks, inserted
+http.query             tenant, question_len
+  agent.run            max_steps, n_tool_calls, refused, confidence
+    tool.search_docs   ok, latency_ms, error
+    tool.calculator    ok, latency_ms
+pipeline.ingest        tenant, doc_id, n_chunks
+pipeline.retrieve      k, fetch_k, n_candidates, n_returned, reranker
+```
+
+The SDK is imported lazily - enabling without installing the `[otel]`
+extra logs a warning and stays disabled. Tracing failures never crash
+the app. The default exporter is `ConsoleSpanExporter`; an OTLP
+exporter is a natural next step (roadmap).
+
+---
+
 ## Testing
 
 ```bash
@@ -311,7 +341,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Cost model + benchmarks — see [`docs/benchmarks.md`](docs/benchmarks.md)
 - [x] Reranker (cross-encoder) behind flag — interface + offline impls + delta measured
 - [x] Multi-tenant isolation + auth — opt-in `X-API-Key`, tenant-scoped ingest + store filter
-- [ ] OpenTelemetry traces
+- [x] OpenTelemetry traces — opt-in, no-op default, lazy SDK
 
 ### M6+ (backlog — post-MVP)
 

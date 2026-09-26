@@ -17,6 +17,7 @@ from app.agents.prompts import initial_messages
 from app.agents.registry import ToolRegistry
 from app.agents.schema import AgentOutput, Citation, ToolCall
 from app.core.logging import get_logger
+from app.core.tracing import span
 
 log = get_logger(__name__)
 
@@ -38,6 +39,10 @@ class Agent:
         if not question:
             raise ValueError("question must be non-empty")
 
+        with span("agent.run", max_steps=self.max_steps) as s:
+            return self._run_inner(question, s)
+
+    def _run_inner(self, question: str, outer_span) -> AgentOutput:
         messages = initial_messages(question, self.registry.all())
         tool_calls: list[ToolCall] = []
 
@@ -62,7 +67,11 @@ class Agent:
             messages.append({"role": "assistant", "content": raw})
 
             if step.action == "finish":
-                return self._build_output(question, step, tool_calls)
+                out = self._build_output(question, step, tool_calls)
+                outer_span.set_attribute("n_tool_calls", len(tool_calls))
+                outer_span.set_attribute("refused", out.refused)
+                outer_span.set_attribute("confidence", out.confidence)
+                return out
 
             assert step.tool is not None
             tc, result = self._call_tool(step.tool, step.args)
@@ -90,22 +99,31 @@ class Agent:
         Tools are user-supplied callables; any exception they raise is
         captured here so a single bad tool cannot crash the agent loop.
         """
-        t0 = time.monotonic()
-        try:
-            tool = self.registry.get(name)
-        except KeyError as e:
-            return ToolCall(tool=name, args=args, ok=False, error=str(e)), None
+        with span(f"tool.{name}", tool=name) as s:
+            t0 = time.monotonic()
+            try:
+                tool = self.registry.get(name)
+            except KeyError as e:
+                s.set_attribute("ok", False)
+                s.set_attribute("error", "unknown tool")
+                return ToolCall(tool=name, args=args, ok=False, error=str(e)), None
 
-        try:
-            result = tool.call(**args)
-            ms = int((time.monotonic() - t0) * 1000)
-            return ToolCall(tool=name, args=args, ok=True, latency_ms=ms), result
-        except Exception as e:  # noqa: BLE001 -- tool boundary: capture anything
-            ms = int((time.monotonic() - t0) * 1000)
-            return (
-                ToolCall(tool=name, args=args, ok=False, error=str(e), latency_ms=ms),
-                None,
-            )
+            try:
+                result = tool.call(**args)
+                ms = int((time.monotonic() - t0) * 1000)
+                s.set_attribute("ok", True)
+                s.set_attribute("latency_ms", ms)
+                return ToolCall(tool=name, args=args, ok=True, latency_ms=ms), result
+            except Exception as e:  # noqa: BLE001 -- tool boundary: capture anything
+                ms = int((time.monotonic() - t0) * 1000)
+                s.set_attribute("ok", False)
+                s.set_attribute("latency_ms", ms)
+                s.set_attribute("error", str(e)[:200])
+                s.record_exception(e)
+                return (
+                    ToolCall(tool=name, args=args, ok=False, error=str(e), latency_ms=ms),
+                    None,
+                )
 
     def _build_output(
         self,
