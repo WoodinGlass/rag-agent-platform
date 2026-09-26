@@ -1,0 +1,172 @@
+{
+  "k": 5,
+  "hits": 12,
+  "total": 12,
+  "rate": 1.0,
+  "per_query": [
+    {
+      "question": "What is retrieval augmented generation?",
+      "expected": [
+        "37520c5cc5aeb78ef4b8798af5f15412"
+      ],
+      "got": [
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "6057a79a4638110006192e8bb91e7d8b",
+        "7281cd00be865ddcc628b8ece6703212",
+        "e10f2bc75cb1560a58e71192e3a56722",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "hit": true
+    },
+    {
+      "question": "How does an AI agent decide which tools to call?",
+      "expected": [
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "ce86a4a6e28d7b5caf688a8f47c23c0a"
+      ],
+      "got": [
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "7281cd00be865ddcc628b8ece6703212",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "ce86a4a6e28d7b5caf688a8f47c23c0a",
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "hit": true
+    },
+    {
+      "question": "Which vector database is good for local prototyping?",
+      "expected": [
+        "844c4766d8c0cbf0d5a8f648e2722bd0"
+      ],
+      "got": [
+        "6057a79a4638110006192e8bb91e7d8b",
+        "7281cd00be865ddcc628b8ece6703212",
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "b49b54d5a3678c48b6093904ae4536a5"
+      ],
+      "hit": true
+    },
+    {
+      "question": "How does FastAPI validate incoming request bodies?",
+      "expected": [
+        "f53ece5863f1e928f54924db81c943db",
+        "b80d8ce847332babc7023610d3a71fe3"
+      ],
+      "got": [
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "7281cd00be865ddcc628b8ece6703212",
+        "d0b166c38d189f01549e6e957be8f79a",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "hit": true
+    },
+    {
+      "question": "What metrics does Ragas compute?",
+      "expected": [
+        "e10f2bc75cb1560a58e71192e3a56722"
+      ],
+      "got": [
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "d0b166c38d189f01549e6e957be8f79a",
+        "e10f2bc75cb1560a58e71192e3a56722",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "hit": true
+    },
+    {
+      "question": "How do ingestion pipelines become idempotent?",
+      "expected": [
+        "2b138375aeed6b36e0f404ac4457ac14"
+      ],
+      "got": [
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "844c4766d8c0cbf0d5a8f648e2722bd0"
+      ],
+      "hit": true
+    },
+    {
+      "question": "What is recursive text chunking?",
+      "expected": [
+        "d0b166c38d189f01549e6e957be8f79a"
+      ],
+      "got": [
+        "6057a79a4638110006192e8bb91e7d8b",
+        "7281cd00be865ddcc628b8ece6703212",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "d0b166c38d189f01549e6e957be8f79a",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "hit": true
+    },
+    {
+      "question": "How to keep Docker runtime images small?",
+      "expected": [
+        "1ffc993fbe93b3706762db8d5d4dcc25"
+      ],
+      "got": [
+        "1ffc993fbe93b3706762db8d5d4dcc25",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "7281cd00be865ddcc628b8ece6703212",
+        "844c4766d8c0cbf0d5a8f648e2722bd0"
+      ],
+      "hit": true
+    },
+    {
+      "question": "What runs on every push in CI?",
+      "expected": [
+        "6057a79a4638110006192e8bb91e7d8b"
+      ],
+      "got": [
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "6057a79a4638110006192e8bb91e7d8b",
+        "b49b54d5a3678c48b6093904ae4536a5"
+      ],
+      "hit": true
+    },
+    {
+      "question": "How is a correlation identifier used in logs?",
+      "expected": [
+        "7281cd00be865ddcc628b8ece6703212"
+      ],
+      "got": [
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "6057a79a4638110006192e8bb91e7d8b",
+        "7281cd00be865ddcc628b8ece6703212",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "hit": true
+    },
+    {
+      "question": "What reduces hallucination in LLM answers?",
+      "expected": [
+        "37520c5cc5aeb78ef4b8798af5f15412"
+      ],
+      "got": [
+        "2b138375aeed6b36e0f404ac4457ac14",
+        "37520c5cc5aeb78ef4b8798af5f15412",
+        "b49b54d5a3678c48b6093904ae4536a5",
+        "e10f2bc75cb1560a58e71192e3a56722",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "hit": true
+    },
+    {
+      "question": "What is the state machine model for agents?",
+      "expected": [
+        "ce86a4a6e28d7b5caf688a8f47c23c0a"
+      ],
+      "got": [
+        "844c4766d8c0cbf0d5a8f648e2722bd0",
+        "b80d8ce847332babc7023610d3a71fe3",
+        "ce86a4a6e28d7b5caf688a8f47c23c0a",
+        "f53ece5863f1e928f54924db81c943db"
+      ],
+      "hit": true
+    }
+  ]
+}
