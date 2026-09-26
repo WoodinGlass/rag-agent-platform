@@ -28,13 +28,13 @@ jobs:
       - name: Type check (mypy)
         run: mypy app/
 
-      - name: Unit + integration with coverage
+      - name: Test with coverage
         run: |
           pytest -m "" \
             --cov=app \
             --cov-report=term-missing \
             --cov-report=xml \
-            --cov-fail-under=0
+            --cov-fail-under=85
 
       - name: Upload coverage report
         if: always()
