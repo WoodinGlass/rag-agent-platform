@@ -220,6 +220,45 @@ def write_reports(report: dict, out_dir: Path) -> tuple[Path, Path]:
     return json_path, md_path
 
 
+def write_badge(report: dict, out_dir: Path) -> Path | None:
+    """Emit a shields.io endpoint JSON for the headline metric.
+
+    Retrieval mode -> hit_rate@k
+    Ragas mode     -> faithfulness (if present)
+    Returns None if no metric available.
+    """
+    badge: dict | None = None
+
+    if report["mode"] == "retrieval" and not report.get("skipped"):
+        value = float(report["hit_rate"])
+        color = "brightgreen" if value >= 0.9 else "green" if value >= 0.8 else "yellow"
+        badge = {
+            "schemaVersion": 1,
+            "label": f"retrieval hit-rate@{report['k']}",
+            "message": f"{value:.4f}",
+            "color": color,
+        }
+    elif report["mode"] == "ragas" and not report.get("skipped"):
+        scores = report.get("scores", {})
+        if "faithfulness" in scores:
+            value = float(scores["faithfulness"])
+            color = "brightgreen" if value >= 0.85 else "green" if value >= 0.7 else "yellow"
+            badge = {
+                "schemaVersion": 1,
+                "label": "faithfulness",
+                "message": f"{value:.4f}",
+                "color": color,
+            }
+
+    if badge is None:
+        return None
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "badge.json"
+    path.write_text(json.dumps(badge, indent=2) + "\n")
+    return path
+
+
 def _render_markdown(report: dict) -> str:
     lines = [
         "# Evaluation report",
@@ -316,6 +355,11 @@ def main(argv: list[str] | None = None) -> int:
     json_path, md_path = write_reports(report, Path(args.out_dir))
     print(f"wrote {json_path}")
     print(f"wrote {md_path}")
+
+    badge_path = write_badge(report, Path(args.out_dir))
+    if badge_path:
+        print(f"wrote {badge_path}")
+
     if report.get("skipped"):
         print(f"note: skipped — {report['reason']}")
     return 0

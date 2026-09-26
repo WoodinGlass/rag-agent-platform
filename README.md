@@ -3,6 +3,7 @@
 > A production-minded RAG + AI agent backend with tool-calling, structured outputs, and a reproducible evaluation loop.
 
 [![CI](https://github.com/WoodinGlass/rag-agent-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/WoodinGlass/rag-agent-platform/actions/workflows/ci.yml)
+[![Eval](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/WoodinGlass/rag-agent-platform/main/evals/reports/badge.json)](https://github.com/WoodinGlass/rag-agent-platform/blob/main/evals/reports/latest.md)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -272,14 +273,14 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Config via `pydantic-settings`, no hardcoded strings
 - [x] **Exit criteria:** `docker compose up` -> `curl /query` returns valid JSON (verified in CI)
 
-### M4 — CI + eval report
+### M4 — CI + eval report ✅
 
-- [ ] GitHub Actions: lint (ruff) -> type (mypy) -> unit test -> build -> smoke
-- [ ] Integration tests behind `integration` marker (testcontainers)
-- [ ] Ragas eval job: faithfulness, answer relevancy, context precision
-- [ ] `evals/reports/` committed as artifacts; README badge shows latest
-- [ ] `docs/runbooks/` for 3 top failures (LLM timeout, store down, bad schema)
-- [ ] **Exit criteria:** CI green on `main`, eval report published, changelog updated
+- [x] GitHub Actions: lint (ruff) -> type (mypy) -> coverage -> docker smoke
+- [x] Integration tests behind `integration` marker (offline, in-process)
+- [x] Ragas eval job: faithfulness, answer relevancy, context precision (skip-friendly without API key)
+- [x] `evals/reports/` committed; README shows endpoint badge + latest report link
+- [x] `docs/runbooks/` for 3 failures (LLM timeout, store down, schema violation)
+- [x] **Exit criteria:** CI green on `main`, eval report published, changelog updated
 
 ### M5+ (backlog — post-MVP)
 
