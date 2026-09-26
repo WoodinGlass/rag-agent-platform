@@ -122,6 +122,7 @@ curl -X POST localhost:8000/query \
 ```bash
 docker compose -f docker/docker-compose.yml up --build
 ```
+
 ---
 
 ## Testing
@@ -137,13 +138,14 @@ pytest -m integration         # spins up Docker (testcontainers)
 python -m evals.run --dataset evals/data/demo.jsonl --out evals/reports/
 ```
 
-Latest report: `evals/reports/latest.md`
+Latest report: `evals/reports/retrieval_latest.json`
 
 | Metric | Target | Latest |
 |---|---|---|
-| Faithfulness | ≥ 0.85 | – |
-| Answer relevancy | ≥ 0.80 | – |
-| Context precision | ≥ 0.75 | – |
+| Retrieval hit-rate@5 (M1) | ≥ 0.80 | **1.000** (12/12) |
+| Faithfulness (M4) | ≥ 0.85 | – |
+| Answer relevancy (M4) | ≥ 0.80 | – |
+| Context precision (M4) | ≥ 0.75 | – |
 | p95 latency (query) | ≤ 2.5 s | – |
 | Cost / 1k queries | ≤ $0.50 | – |
 
@@ -169,14 +171,14 @@ Conventional commits. One PR = one milestone checkbox. `pre-commit` runs ruff + 
 
 Each milestone ships **runnable, tested, and documented** code — not stubs.
 
-### M1 — Local RAG (deterministic core)
+### M1 — Local RAG (deterministic core) ✅
 
-- [ ] `app/rag/`: chunker (recursive + version), embedder (provider-agnostic), Chroma store
-- [ ] Idempotent ingest: `sha256(file) + chunker_version` as key
-- [ ] `scripts/ingest_demo.py` ingests a sample corpus
-- [ ] Retrieval endpoint returns top-k with scores + source spans
-- [ ] Unit tests (chunker edge cases, embedder mock)
-- [ ] **Exit criteria:** `pytest -m "not integration"` green, retrieval hit-rate@5 ≥ 0.8 on demo set
+- [x] `app/rag/`: chunker (recursive + version), embedder (provider-agnostic), Chroma store
+- [x] Idempotent ingest: `sha256(file) + chunker_version` as key
+- [x] `scripts/ingest_demo.py` ingests a sample corpus
+- [x] Retrieval endpoint returns top-k with scores + source spans
+- [x] Unit tests (chunker edge cases, embedder mock)
+- [x] **Exit criteria:** `pytest -m "not integration"` green, retrieval hit-rate@5 = **1.000** on demo set
 
 ### M2 — Agent + tools
 
