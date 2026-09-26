@@ -1,14 +1,14 @@
 """In-memory EventSource for tests and demos.
 
 Not for production. But it mirrors the Kafka contract:
-- at-least-once delivery (no dedup here — that's the ingestor's job)
+- at-least-once delivery (no dedup here -- that is the ingestor's job)
 - commit is a no-op that records the last id (for assertions in tests)
 - poll returns None on empty (so the consumer's loop stays responsive)
 
 Features useful for testing:
 - `push(event)` to enqueue (also exposes producer side for demos)
 - `committed_ids` for assertions
-- `fail_next(n)` to simulate downstream/ack failures
+- `maxsize` to exercise backpressure
 """
 from __future__ import annotations
 
