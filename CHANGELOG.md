@@ -13,6 +13,11 @@ Versioning: [SemVer](https://semver.org/).
 - `benchmarks/results/latest.{json,md}`: committed artifacts
 - `docs/benchmarks.md`: measured vs projected, honest gaps
 - tests: benchmark helpers (percentile, summarize, tokenizer estimate)
+- `benchmarks/reranker_delta.py`: identity vs fake, quality + latency delta
+- `benchmarks/results/reranker_delta.{json,md}`: committed
+- `app/rag/reranker.py`: Reranker ABC, Identity/Fake/CrossEncoder impls
+- `pyproject.toml`: new `[rerank]` extra (sentence-transformers)
+- `pipeline.retrieve()`: fetch k*multiplier, rerank to k (default identity)
 
 **M1 — Local RAG (deterministic core)**
 - `app/core`: pydantic-settings config, deterministic ids, JSON logging

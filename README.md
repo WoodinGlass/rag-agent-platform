@@ -217,6 +217,7 @@ Latest report: `evals/reports/retrieval_latest.json`
 | Context precision (M4) | >= 0.75 | - |
 | p95 latency (retrieve) | <= 2.5 s | **3.168 ms** — see [`docs/benchmarks.md`](docs/benchmarks.md) |
 | Cost / 1k queries | <= $0.50 | **$0.079** — projected, see [`docs/benchmarks.md`](docs/benchmarks.md) |
+| Reranker (fake) delta | informational | see [`docs/benchmarks.md`](docs/benchmarks.md) § Reranker delta |
 
 ---
 
@@ -285,7 +286,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 ### M5 — Hardening [in progress]
 
 - [x] Cost model + benchmarks — see [`docs/benchmarks.md`](docs/benchmarks.md)
-- [ ] Reranker (cross-encoder) behind flag
+- [x] Reranker (cross-encoder) behind flag — interface + offline impls + delta measured
 - [ ] Multi-tenant isolation + auth
 - [ ] OpenTelemetry traces
 

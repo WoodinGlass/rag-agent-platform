@@ -1,89 +1,124 @@
 # Benchmarks
 
-Reproducible measurements of the **offline** pipeline. Two kinds of
-numbers live here, always labelled:
+Reproducible measurements of the **offline** pipeline. Two kinds of numbers live here, always labelled:
 
-- **Measured** — actual wall-clock on a specific machine, using
-  `FakeEmbedder` + `MemoryStore` + `FakeLLM` (no network, no API cost).
-- **Projected** — cost model derived from published list prices and
-  token-count estimates. Not a claim of production performance.
+- **Measured** — actual wall-clock on a specific machine, using `FakeEmbedder` + `MemoryStore` + `FakeLLM` (no network, no API cost).
+- **Projected** — cost model derived from published list prices and token-count estimates. Not a claim of production performance.
 
 Regenerate with:
 
 ```bash
 python -m benchmarks.run --n 100 --k 5
-Full report: benchmarks/results/latest.md ·
-Raw JSON: benchmarks/results/latest.json.
+python -m benchmarks.reranker_delta --k 5
+```
 
-Setup
-Knob    Value
-Corpus  12 documents (evals/data/corpus.jsonl)
-Eval set    15 questions (evals/data/eval_set.jsonl)
-Chunk size  200
-Embedder    FakeEmbedder(dim=256) — deterministic, offline
-Vector store    MemoryStore (in-process)
-Warmup  10 queries (excluded from stats)
-Measured queries    100
-Ingest (measured)
-Ingestion = chunk → embed → store, per document, idempotent on
-sha256(content) + chunker_version.
+Full report: [`benchmarks/results/latest.md`](../benchmarks/results/latest.md) · Raw JSON: [`benchmarks/results/latest.json`](../benchmarks/results/latest.json).
 
-Metric  Value
-Total (12 docs) 3.469 ms
-Per document    0.289 ms
-This measures the local pipeline. It does not include the cost of
-fetching bytes from an object store (network-bound; out of scope here).
+## Setup
 
-Retrieve latency (measured)
-pipeline.retrieve(question, k=5) — embed query + cosine query + sort.
+| Knob | Value |
+|---|---|
+| Corpus | 12 documents (`evals/data/corpus.jsonl`) |
+| Eval set | 15 questions (`evals/data/eval_set.jsonl`) |
+| Chunk size | 200 |
+| Embedder | `FakeEmbedder(dim=256)` — deterministic, offline |
+| Vector store | `MemoryStore` (in-process) |
+| Warmup | 10 queries (excluded from stats) |
+| Measured queries | 100 |
 
-Metric  ms
-mean    2.188
-p50 2.067
-p90 2.257
-p95 3.168
-p99 4.154
-min 1.834
-max 4.180
-At MemoryStore scale (12 chunks) retrieval is dominated by embedding
-the query, not by the vector search. The interesting question is what
-happens at 10k+ chunks with a real ANN index (Chroma / Qdrant). That's
-on the M5 backlog; this baseline tells us the pipeline overhead is
-~sub-millisecond, so the ceiling is the vector store, not our code.
+## Ingest (measured)
 
-Cost model (projected)
+Ingestion = chunk -> embed -> store, per document, idempotent on `sha256(content) + chunker_version`.
+
+| Metric | Value |
+|---|---|
+| Total (12 docs) | **3.469 ms** |
+| Per document | **0.289 ms** |
+
+This measures the *local* pipeline. It does not include the cost of fetching bytes from an object store (network-bound; out of scope here).
+
+## Retrieve latency (measured)
+
+`pipeline.retrieve(question, k=5)` — embed query + cosine query + sort.
+
+| Metric | ms |
+|---|---|
+| mean | 2.188 |
+| p50 | 2.067 |
+| p90 | 2.257 |
+| p95 | **3.168** |
+| p99 | 4.154 |
+| min | 1.834 |
+| max | 4.180 |
+
+At `MemoryStore` scale (12 chunks) retrieval is dominated by embedding the query, not by the vector search. The interesting question is what happens at 10k+ chunks with a real ANN index (Chroma / Qdrant). That's on the M5 backlog; this baseline tells us the pipeline overhead is ~sub-millisecond, so the ceiling is the vector store, not our code.
+
+## Cost model (projected)
+
 Model parameters, from the report:
 
-Knob    Value   Source
-Embedding   $0.02 / 1M tokens   text-embedding-3-small list price
-LLM input   $0.15 / 1M tokens   gpt-4o-mini list price
-LLM output  $0.60 / 1M tokens   gpt-4o-mini list price
-Context tokens / query  200 assumption (top-5 chunks)
-Output tokens / query   80  assumption (short answer)
-Tokenizer   whitespace  estimate, not tiktoken
+| Knob | Value | Source |
+|---|---|---|
+| Embedding | $0.02 / 1M tokens | `text-embedding-3-small` list price |
+| LLM input | $0.15 / 1M tokens | `gpt-4o-mini` list price |
+| LLM output | $0.60 / 1M tokens | `gpt-4o-mini` list price |
+| Context tokens / query | 200 | assumption (top-5 chunks) |
+| Output tokens / query | 80 | assumption (short answer) |
+| Tokenizer | whitespace | estimate, not `tiktoken` |
+
 Results:
 
-Item    Value
-Corpus embedding (one-time) $0.0000070 (369 tokens)
-Per query (input + context + output)    $0.0000790
-Per 1,000 queries   $0.0790
-Cost is dominated by LLM output tokens. Levers in a real deployment:
-shorter answers, caching for repeated questions, smaller models for
-easy questions.
+| Item | Value |
+|---|---|
+| Corpus embedding (one-time) | `$0.0000070` (369 tokens) |
+| Per query (input + context + output) | `$0.0000790` |
+| **Per 1,000 queries** | **`$0.0790`** |
 
-Honest gaps
-No real provider numbers yet. These run offline. Add
---embedder openai with OPENAI_API_KEY to get real provider
-latency; the script already supports it.
+Cost is dominated by LLM output tokens. Levers in a real deployment: shorter answers, caching for repeated questions, smaller models for easy questions.
 
-No concurrency. Single-threaded. Real p95 under load is a
-different number — that's the job of a load-test milestone
-(not scheduled).
+## Reranker delta (M5.2)
 
-No ANN at scale. See retrieve note above.
+Pattern: retrieve top `k * retrieve_multiplier` (cheap, approximate), then rerank to top `k` (more accurate). Here we compare `IdentityReranker` (baseline; no-op) against `FakeReranker`, a deterministic token-overlap heuristic.
 
-Cost model is list-price only. Volume discounts, prompt caching,
-and batch APIs are not modelled.
+Raw: [`benchmarks/results/reranker_delta.md`](../benchmarks/results/reranker_delta.md)
 
-Whitespace tokenizer. Real token counts (tiktoken / anthropic)
-will differ by ±20%. Treat cost figures as order-of-magnitude.
+### Quality
+
+| Metric | Identity | Fake | Delta |
+|---|---|---|---|
+| hit_rate@5 | 1.0 | 1.0 | +0.0000 |
+| MRR@5 | 0.7189 | 0.83 | +0.1111 |
+| precision@5 | 0.2533 | 0.2667 | +0.0134 |
+| recall@5 | 0.9667 | 0.9667 | +0.0000 |
+
+### Latency (per query, ms)
+
+| Metric | Identity | Fake | Delta |
+|---|---|---|---|
+| mean | 2.362 | 2.517 | +0.155 |
+| p50 | 1.935 | 1.983 | +0.048 |
+| p95 | 3.896 | 4.464 | +0.568 |
+
+### Honest reading
+
+`FakeReranker` is a *token-overlap heuristic*, not a cross-encoder. It is intentionally simple so tests can assert its wiring deterministically. If the quality delta is ~0 or negative, that is the expected outcome: a heuristic cannot match a real cross-encoder's joint scoring.
+
+What this section *does* establish:
+
+1. **The pipeline path is live.** Reranker output is what `pipeline.retrieve()` returns; changing the reranker changes results.
+2. **The latency cost of the extra fetch + rerank is small** compared to query embedding, at MemoryStore scale.
+3. **The interface is honest.** `CrossEncoderReranker` swaps in with a one-line config change; no pipeline edits needed.
+
+### What we are not claiming
+
+- That `FakeReranker` improves retrieval quality. It likely does not, and the delta above is the evidence.
+- That cross-encoder latency is small. Real cross-encoders add ~10-40 ms per query on CPU for top-20 candidates. Benchmarking that requires installing `sentence-transformers` (extra `rerank`) and running with `CrossEncoderReranker` — out of scope for the offline benchmark.
+
+## Honest gaps
+
+- **No real provider numbers yet.** These run offline. Add `--embedder openai` with `OPENAI_API_KEY` to get real provider latency; the script already supports it.
+- **No concurrency.** Single-threaded. Real p95 under load is a different number — that's the job of a load-test milestone (not scheduled).
+- **No ANN at scale.** See retrieve note above.
+- **Cost model is list-price only.** Volume discounts, prompt caching, and batch APIs are not modelled.
+- **Whitespace tokenizer.** Real token counts (tiktoken / anthropic) will differ by ±20%. Treat cost figures as order-of-magnitude.
+
