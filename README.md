@@ -219,13 +219,19 @@ Latest report: `evals/reports/retrieval_latest.json`
 
 ---
 
-## Failure modes & runbooks (M4)
+## Failure modes & runbooks
 
-See `docs/runbooks/`:
+Three failure modes are documented end-to-end (symptom -> triage ->
+mitigation -> prevention -> signals):
 
-1. `llm-timeout.md` — retry with jitter, fallback model, cache hit
-2. `vector-store-down.md` — circuit breaker, degraded retrieval
-3. `schema-violation.md` — hard fail, correlation ID, sample payload
+1. [`llm-timeout.md`](docs/runbooks/llm-timeout.md) — provider slow or down;
+   retry with jitter, fallback to `fake`, cache hit
+2. [`vector-store-down.md`](docs/runbooks/vector-store-down.md) — store
+   unreachable; restart, snapshot, or fall to `memory` (degraded)
+3. [`schema-violation.md`](docs/runbooks/schema-violation.md) — client
+   contract or LLM output violates schema; hard fail with cid
+
+Architecture overview: [`docs/architecture.md`](docs/architecture.md).
 
 ---
 
