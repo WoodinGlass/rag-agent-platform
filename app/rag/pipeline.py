@@ -2,6 +2,11 @@
 
 Ingest is idempotent: same (bytes, chunker_version) -> same doc_id.
 If the store already has that doc_id, ingest is a no-op.
+
+Retrieve optionally reranks:
+- Fetch top `k * retrieve_multiplier` from the store (cheap, approximate).
+- If a Reranker is configured, rerank to `k` (accurate, expensive).
+- Default: IdentityReranker -> behaviour unchanged.
 """
 from __future__ import annotations
 
@@ -12,6 +17,7 @@ from app.core.ids import doc_id as make_doc_id
 from app.core.logging import get_logger
 from app.rag.chunker import CHUNKER_VERSION, chunk_text
 from app.rag.embedder import Embedder
+from app.rag.reranker import IdentityReranker, Reranker
 from app.rag.store import Hit, VectorStore
 
 log = get_logger(__name__)
@@ -33,11 +39,17 @@ class RagPipeline:
         *,
         chunk_size: int = 500,
         chunker_version: str = CHUNKER_VERSION,
+        reranker: Reranker | None = None,
+        retrieve_multiplier: int = 2,
     ):
         self.embedder = embedder
         self.store = store
         self.chunk_size = chunk_size
         self.chunker_version = chunker_version
+        self.reranker: Reranker = reranker or IdentityReranker()
+        if retrieve_multiplier < 1:
+            raise ValueError("retrieve_multiplier must be >= 1")
+        self.retrieve_multiplier = retrieve_multiplier
 
     def ingest(
         self,
@@ -75,6 +87,17 @@ class RagPipeline:
 
     def retrieve(self, question: str, k: int = 5) -> list[Hit]:
         qvec = self.embedder.embed_one(question)
-        hits = self.store.query(qvec, k=k)
-        log.info("retrieve.ok", extra={"k": k, "n_hits": len(hits)})
-        return hits
+        fetch_k = max(k, k * self.retrieve_multiplier)
+        candidates = self.store.query(qvec, k=fetch_k)
+        reranked = self.reranker.rerank(question, candidates, top_n=k)
+        log.info(
+            "retrieve.ok",
+            extra={
+                "k": k,
+                "fetch_k": fetch_k,
+                "n_candidates": len(candidates),
+                "n_returned": len(reranked),
+                "reranker": type(self.reranker).__name__,
+            },
+        )
+        return reranked

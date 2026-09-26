@@ -1,6 +1,6 @@
 # Evaluation report
 
-- Generated: `2026-09-26T17:03:42+00:00`
+- Generated: `2026-09-26T17:57:49+00:00`
 - Mode: **retrieval**
 - k: `5`
 - n queries: `15`

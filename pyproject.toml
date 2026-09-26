@@ -23,6 +23,7 @@ llm         = ["openai>=1.30", "anthropic>=0.30", "langchain>=0.2", "langgraph>=
 vector      = ["chromadb>=0.5"]
 agents      = ["langchain-openai>=0.1", "langchain-anthropic>=0.1"]
 http        = ["httpx>=0.27"]
+rerank      = ["sentence-transformers>=3.0"]
 eval        = ["ragas>=0.1", "datasets>=2.19"]
 dev         = [
     "pytest>=8",
@@ -34,7 +35,7 @@ dev         = [
     "pre-commit",
 ]
 integration = ["testcontainers>=4.5", "psycopg[binary]>=3.1"]
-all         = ["rag-agent-platform[llm,vector,agents,http,eval,dev,integration]"]
+all         = ["rag-agent-platform[llm,vector,agents,http,rerank,eval,dev,integration]"]
 
 [tool.setuptools.packages.find]
 include = ["app*", "evals*"]
