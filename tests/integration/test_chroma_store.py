@@ -2,6 +2,9 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
+# Skip gracefully if the optional [vector] extra isn't installed.
+pytest.importorskip("chromadb")
+
 from app.rag.chunker import chunk_text
 from app.rag.embedder import FakeEmbedder
 from app.rag.store import ChromaStore
@@ -25,4 +28,4 @@ def test_chroma_idempotent_upsert(tmp_path):
     chunks = chunk_text("hello world", "d1", size=100)
     emb = FakeEmbedder(dim=32).embed([c.text for c in chunks])
     assert store.upsert(chunks, emb) == len(chunks)
-    assert store.upsert(chunks, emb) == 0  # second call: no new inserts
+    assert store.upsert(chunks, emb) == 0
