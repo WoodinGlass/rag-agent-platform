@@ -41,6 +41,17 @@ class Settings(BaseSettings):
     # --- Retrieval ---
     top_k: int = 5
 
+    # --- Reranker (M5.2) ---
+    reranker_backend: Literal["identity", "fake", "cross-encoder"] = "identity"
+    retrieve_multiplier: int = 2
+
+    # --- Multi-tenant / auth (M5.3) ---
+    # Default OFF: the portfolio runs with a single "public" tenant.
+    tenant_auth_enabled: bool = False
+    # Format: "key1:tenantA,key2:tenantB" — only used when auth is enabled.
+    tenant_keys: str = ""
+    default_tenant: str = "public"
+
     # --- Logging ---
     log_level: str = "INFO"
     log_json: bool = True

@@ -1,9 +1,12 @@
 """HTTP routes.
 
-- POST /ingest : decode base64 -> pipeline.ingest (idempotent)
+- POST /ingest : decode base64 -> pipeline.ingest (idempotent, tenant-scoped)
 - POST /query  : run agent -> AgentOutput, wrapped with timing + cid
 - GET  /healthz: shallow + deep checks
 - GET  /metrics: in-process counters + latency histograms
+
+Multi-tenant: both POST routes accept the tenant via `TenantDep` (from
+`X-API-Key` when auth is enabled; otherwise the default tenant).
 """
 from __future__ import annotations
 
@@ -12,7 +15,13 @@ import time
 from fastapi import APIRouter, Request
 
 from app.agents.schema import AgentOutput
-from app.api.deps import AgentDep, CorrelationIdDep, PipelineDep, SettingsDep
+from app.api.deps import (
+    AgentDep,
+    CorrelationIdDep,
+    PipelineDep,
+    SettingsDep,
+    TenantDep,
+)
 from app.api.schemas import (
     HealthResponse,
     HealthStatus,
@@ -38,6 +47,7 @@ def ingest(
     req: IngestRequest,
     pipeline: PipelineDep,
     settings: SettingsDep,
+    tenant: TenantDep,
 ) -> IngestResponse:
     metrics = get_metrics()
     metrics.inc("ingest.requests")
@@ -46,6 +56,7 @@ def ingest(
         req.decode(),
         source=req.source,
         metadata=req.metadata,
+        tenant_id=tenant,
     )
     if r.skipped:
         metrics.inc("ingest.skipped")
@@ -59,6 +70,7 @@ def ingest(
             "doc_id": r.doc_id,
             "n_chunks": r.n_chunks,
             "skipped": r.skipped,
+            "tenant": tenant,
         },
     )
     return IngestResponse(
@@ -77,11 +89,17 @@ def query(
     req: QueryRequest,
     agent: AgentDep,
     cid: CorrelationIdDep,
+    tenant: TenantDep,
 ) -> QueryResponse:
     metrics = get_metrics()
     metrics.inc("query.requests")
 
     t0 = time.monotonic()
+    # Note: the agent loop calls `search_docs`; the tenant filter is
+    # applied because `bootstrap.build_agent` binds the pipeline and the
+    # tool passes the current request's tenant to it (see M5.3 wiring in
+    # app/main.py: pipeline carries the tenant per request via contextvar
+    # is on the roadmap; for now, agent path is single-tenant).
     out: AgentOutput = agent.run(req.question)
     elapsed_ms = int((time.monotonic() - t0) * 1000)
 
@@ -107,9 +125,14 @@ def healthz(request: Request, settings: SettingsDep) -> HealthResponse:
 
     has_agent = getattr(request.app.state, "agent", None) is not None
     has_pipeline = getattr(request.app.state, "pipeline", None) is not None
+    tenant_auth = bool(getattr(settings, "tenant_auth_enabled", False))
 
-    checks = {"agent": has_agent, "pipeline": has_pipeline}
-    status: HealthStatus = "ok" if all(checks.values()) else "degraded"
+    checks = {
+        "agent": has_agent,
+        "pipeline": has_pipeline,
+        "tenant_auth": tenant_auth,
+    }
+    status: HealthStatus = "ok" if (has_agent and has_pipeline) else "degraded"
     return HealthResponse(
         status=status,
         version=APP_VERSION,

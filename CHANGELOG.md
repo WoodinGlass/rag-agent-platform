@@ -18,6 +18,15 @@ Versioning: [SemVer](https://semver.org/).
 - `app/rag/reranker.py`: Reranker ABC, Identity/Fake/CrossEncoder impls
 - `pyproject.toml`: new `[rerank]` extra (sentence-transformers)
 - `pipeline.retrieve()`: fetch k*multiplier, rerank to k (default identity)
+- **M5.3 — multi-tenant + auth (opt-in)**
+  - `app/core/auth.py`: parse `TENANT_KEYS`, resolve tenant from `X-API-Key`
+  - `TENANT_AUTH_ENABLED` default `false` (single-tenant backward compat)
+  - Tenant-scoped `doc_id` (same bytes in two tenants -> different ids)
+  - Store-level `tenant_id` filter (MemoryStore, ChromaStore `where`)
+  - `TenantDep` route dependency: `/ingest` fully isolated; 401 on bad key
+  - 26 new tests (parse, resolve, HTTP, isolation)
+  - **Known gap (M5.4):** `/query` still uses the startup-bound pipeline;
+    tenant-per-request through the agent loop is documented and scheduled
 
 **M1 — Local RAG (deterministic core)**
 - `app/core`: pydantic-settings config, deterministic ids, JSON logging

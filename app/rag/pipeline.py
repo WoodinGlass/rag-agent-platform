@@ -1,12 +1,17 @@
 """Ingest + retrieve pipeline.
 
-Ingest is idempotent: same (bytes, chunker_version) -> same doc_id.
-If the store already has that doc_id, ingest is a no-op.
+Ingest is idempotent: same (bytes, chunker_version, tenant_id) -> same doc_id.
+Different tenant -> different doc_id, so a doc ingested by A cannot collide
+with the same bytes ingested by B.
 
 Retrieve optionally reranks:
-- Fetch top `k * retrieve_multiplier` from the store (cheap, approximate).
+- Fetch top `k * retrieve_multiplier` (cheap, approximate).
 - If a Reranker is configured, rerank to `k` (accurate, expensive).
 - Default: IdentityReranker -> behaviour unchanged.
+
+Multi-tenant (M5.3): `tenant_id` is written into chunk metadata on ingest
+and passed to the store on retrieve. When omitted, no filtering (single-
+tenant behaviour).
 """
 from __future__ import annotations
 
@@ -57,38 +62,51 @@ class RagPipeline:
         *,
         source: str = "",
         metadata: dict | None = None,
+        tenant_id: str | None = None,
     ) -> IngestResult:
         chash = content_hash(data)
-        did = make_doc_id(chash, self.chunker_version)
+        # Tenant-scoped id: same bytes in two tenants produce two doc_ids.
+        id_namespace = self.chunker_version if tenant_id is None else f"{tenant_id}::{self.chunker_version}"
+        did = make_doc_id(chash, id_namespace)
 
         if self.store.has_doc(did):
-            log.info("ingest.skip", extra={"doc_id": did, "reason": "already_present"})
+            log.info("ingest.skip", extra={"doc_id": did, "reason": "already_present", "tenant": tenant_id})
             return IngestResult(doc_id=did, inserted=0, skipped=True, n_chunks=0)
 
         text = data.decode("utf-8", errors="replace")
+        chunk_meta: dict = {"source": source, **(metadata or {})}
+        if tenant_id is not None:
+            chunk_meta["tenant_id"] = tenant_id
+
         chunks = chunk_text(
             text,
             did,
             size=self.chunk_size,
             version=self.chunker_version,
-            metadata={"source": source, **(metadata or {})},
+            metadata=chunk_meta,
         )
         if not chunks:
-            log.info("ingest.empty", extra={"doc_id": did})
+            log.info("ingest.empty", extra={"doc_id": did, "tenant": tenant_id})
             return IngestResult(doc_id=did, inserted=0, skipped=False, n_chunks=0)
 
         embeddings = self.embedder.embed([c.text for c in chunks])
         inserted = self.store.upsert(chunks, embeddings)
         log.info(
             "ingest.ok",
-            extra={"doc_id": did, "n_chunks": len(chunks), "inserted": inserted},
+            extra={"doc_id": did, "n_chunks": len(chunks), "inserted": inserted, "tenant": tenant_id},
         )
         return IngestResult(doc_id=did, inserted=inserted, skipped=False, n_chunks=len(chunks))
 
-    def retrieve(self, question: str, k: int = 5) -> list[Hit]:
+    def retrieve(
+        self,
+        question: str,
+        k: int = 5,
+        *,
+        tenant_id: str | None = None,
+    ) -> list[Hit]:
         qvec = self.embedder.embed_one(question)
         fetch_k = max(k, k * self.retrieve_multiplier)
-        candidates = self.store.query(qvec, k=fetch_k)
+        candidates = self.store.query(qvec, k=fetch_k, tenant_id=tenant_id)
         reranked = self.reranker.rerank(question, candidates, top_n=k)
         log.info(
             "retrieve.ok",
@@ -98,6 +116,7 @@ class RagPipeline:
                 "n_candidates": len(candidates),
                 "n_returned": len(reranked),
                 "reranker": type(self.reranker).__name__,
+                "tenant": tenant_id,
             },
         )
         return reranked

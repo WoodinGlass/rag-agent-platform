@@ -133,6 +133,29 @@ docker compose -f docker/docker-compose.yml up --build
 
 All requests accept an optional `X-Request-ID` header; the value (or a generated one) is echoed back and attached to every log line.
 
+### Multi-tenant / auth (opt-in)
+
+By default the API runs single-tenant: every request is treated as the
+`public` tenant. Set `TENANT_AUTH_ENABLED=true` and provide
+`TENANT_KEYS=key1:tenantA,key2:tenantB` to require an `X-API-Key`
+header. Ingestion is tenant-scoped (same bytes in two tenants produce
+different `doc_id`s). Store-level retrieval accepts an optional
+`tenant_id` filter; wiring tenant-per-request through the agent loop is
+on the M5 roadmap (documented in CHANGELOG).
+
+```bash
+# auth enabled: missing or bad key -> 401
+curl -s -X POST localhost:8000/ingest \
+  -H 'Content-Type: application/json' \
+  -d '{"content_base64":"aGVsbG8="}'
+
+# auth enabled: valid key -> 200
+curl -s -X POST localhost:8000/ingest \
+  -H 'X-API-Key: key1' \
+  -H 'Content-Type: application/json' \
+  -d '{"content_base64":"aGVsbG8="}'
+```
+
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/ingest` | Base64 bytes -> chunk -> embed -> store (idempotent on `sha256+version`) |
@@ -287,7 +310,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 
 - [x] Cost model + benchmarks — see [`docs/benchmarks.md`](docs/benchmarks.md)
 - [x] Reranker (cross-encoder) behind flag — interface + offline impls + delta measured
-- [ ] Multi-tenant isolation + auth
+- [x] Multi-tenant isolation + auth — opt-in `X-API-Key`, tenant-scoped ingest + store filter
 - [ ] OpenTelemetry traces
 
 ### M6+ (backlog — post-MVP)

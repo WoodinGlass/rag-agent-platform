@@ -1,19 +1,20 @@
 """FastAPI dependencies.
 
 Wiring lives here, not in global mutable state. Routes declare what they
-need via `Depends(...)` and get it. Swapping implementations (FakeLLM ->
-real LLM) is a one-line change here, not a refactor across routes.
+need via `Annotated[..., Depends(...)]` and get it. Swapping
+implementations (FakeLLM -> real LLM) is a one-line change here.
 
 The heavy lifting (building the AgentStack) is cached at app startup via
-`app.state` — see `app/main.py` (M3.5).
+`app.state` — see `app/main.py`.
 """
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, Header, HTTPException, Request
 
 from app.agents.agent import Agent
+from app.core.auth import AuthError, resolve_tenant
 from app.core.config import Settings, get_settings
 from app.core.logging import get_correlation_id
 from app.rag.pipeline import RagPipeline
@@ -26,7 +27,7 @@ def get_app_settings() -> Settings:
 
 
 def get_correlation_id_dep() -> str:
-    """Correlation id set by middleware (M3.3). Empty if middleware off."""
+    """Correlation id set by middleware. Empty if middleware off."""
     return get_correlation_id()
 
 
@@ -49,9 +50,27 @@ def get_pipeline(request: Request) -> RagPipeline:
     return pipeline
 
 
+# ---------- auth / tenant ----------
+
+
+def get_tenant_id(
+    settings: Annotated[Settings, Depends(get_app_settings)],
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> str:
+    """Resolve the tenant id for this request.
+
+    401 when auth is enabled and the key is missing or invalid.
+    """
+    try:
+        return resolve_tenant(x_api_key, settings)
+    except AuthError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
+
+
 # ---------- typed aliases for cleaner signatures ----------
 
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 CorrelationIdDep = Annotated[str, Depends(get_correlation_id_dep)]
 AgentDep = Annotated[Agent, Depends(get_agent)]
 PipelineDep = Annotated[RagPipeline, Depends(get_pipeline)]
+TenantDep = Annotated[str, Depends(get_tenant_id)]

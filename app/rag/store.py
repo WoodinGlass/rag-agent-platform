@@ -3,6 +3,11 @@
 `MemoryStore` for tests + ephemeral dev (zero deps).
 `ChromaStore` for local persistence (`pip install .[vector]`).
 Chroma import is lazy so unit tests never touch it.
+
+Multi-tenant (M5.3): queries accept an optional `tenant_id`. When set,
+only chunks whose `tenant_id` metadata matches are returned. Ingestion
+stores `tenant_id` in chunk metadata; retrieval filters on it. When
+`tenant_id` is None, no filter is applied (single-tenant behaviour).
 """
 from __future__ import annotations
 
@@ -34,7 +39,13 @@ class VectorStore(ABC):
         """Return number of *newly inserted* chunks (updates don't count)."""
 
     @abstractmethod
-    def query(self, embedding: Sequence[float], k: int = 5) -> list[Hit]:
+    def query(
+        self,
+        embedding: Sequence[float],
+        k: int = 5,
+        *,
+        tenant_id: str | None = None,
+    ) -> list[Hit]:
         ...
 
     @abstractmethod
@@ -78,11 +89,20 @@ class MemoryStore(VectorStore):
             self._docs.add(chunk.doc_id)
         return inserted
 
-    def query(self, embedding: Sequence[float], k: int = 5) -> list[Hit]:
-        scored = [
-            (cid, _cosine(embedding, vec)) for cid, vec in self._vectors.items()
-        ]
+    def query(
+        self,
+        embedding: Sequence[float],
+        k: int = 5,
+        *,
+        tenant_id: str | None = None,
+    ) -> list[Hit]:
+        scored: list[tuple[str, float]] = []
+        for cid, vec in self._vectors.items():
+            if tenant_id is not None and self._meta[cid].get("tenant_id") != tenant_id:
+                continue
+            scored.append((cid, _cosine(embedding, vec)))
         scored.sort(key=lambda x: (-x[1], x[0]))  # stable tiebreak
+
         hits: list[Hit] = []
         for cid, score in scored[:k]:
             m = self._meta[cid]
@@ -107,7 +127,7 @@ class ChromaStore(VectorStore):
     Note on typing: chromadb's public stubs accept a wide union that
     includes numpy arrays. We pass plain Python lists of floats — the
     runtime is fine, but `list` is invariant, so mypy can't narrow
-    `list[list[float]]` to the union. We keep the two payload variables
+    `list[list[float]]` to the union. We keep the payload variables
     typed as `Any` for the call site and let runtime validation handle
     shape errors.
     """
@@ -135,8 +155,6 @@ class ChromaStore(VectorStore):
         existing = set(self._col.get(ids=ids).get("ids", []))
         inserted = sum(1 for i in ids if i not in existing)
 
-        # Plain python floats; annotated `Any` for the chroma call site
-        # (see class docstring). Runtime-validated by chroma itself.
         emb_list: Any = [[float(x) for x in e] for e in embeddings]
         docs: list[str] = [c.text for c in chunks]
         metas: Any = [
@@ -159,11 +177,20 @@ class ChromaStore(VectorStore):
         )
         return inserted
 
-    def query(self, embedding: Sequence[float], k: int = 5) -> list[Hit]:
+    def query(
+        self,
+        embedding: Sequence[float],
+        k: int = 5,
+        *,
+        tenant_id: str | None = None,
+    ) -> list[Hit]:
         emb_list: Any = [float(x) for x in embedding]
+        where: Any = {"tenant_id": tenant_id} if tenant_id is not None else None
+
         res = self._col.query(
             query_embeddings=[emb_list],
             n_results=k,
+            where=where,
         )
         ids = (res.get("ids") or [[]])[0]
         docs = (res.get("documents") or [[]])[0]
