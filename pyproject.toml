@@ -43,8 +43,6 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-# B008: FastAPI route signatures use Depends() as default.
-# This is idiomatic and not a bug — disable only for API route files.
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]
@@ -54,4 +52,25 @@ ignore = []
 
 [tool.mypy]
 python_version = "3.11"
+
+# --- baseline: catch real bugs, don't drown in style ---
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true
+show_error_codes = true
+pretty = true
+follow_imports = "silent"
+
+# --- lenient on tests: fixtures and Pydantic generics are noisy ---
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+warn_return_any = false
+
+# --- optional third-party libs without stubs (only ones we actually import) ---
+[[tool.mypy.overrides]]
+module = ["chromadb.*", "openai.*", "anthropic.*"]
 ignore_missing_imports = true

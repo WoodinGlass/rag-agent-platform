@@ -22,13 +22,15 @@ from __future__ import annotations
 
 import ast
 import operator
+from collections.abc import Callable
+from typing import Any
 
 from app.tools.base import Tool
 
 MAX_EXPONENT = 1000
 MAX_MAGNITUDE = 1e100
 
-_BIN_OPS = {
+_BIN_OPS: dict[type[ast.operator], Callable[[Any, Any], Any]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -37,7 +39,7 @@ _BIN_OPS = {
     ast.Mod: operator.mod,
     ast.Pow: operator.pow,
 }
-_UNARY_OPS = {
+_UNARY_OPS: dict[type[ast.unaryop], Callable[[Any], Any]] = {
     ast.UAdd: operator.pos,
     ast.USub: operator.neg,
 }
@@ -68,14 +70,14 @@ def _eval(node: ast.AST) -> int | float:
         return node.value
 
     if isinstance(node, ast.BinOp):
-        op = _BIN_OPS.get(type(node.op))
-        if op is None:
+        bin_op = _BIN_OPS.get(type(node.op))
+        if bin_op is None:
             raise ValueError(f"operator {type(node.op).__name__} not allowed")
         left = _eval(node.left)
         right = _eval(node.right)
         if isinstance(node.op, ast.Pow) and abs(right) > MAX_EXPONENT:
             raise ValueError(f"exponent too large (max {MAX_EXPONENT})")
-        result = op(left, right)
+        result = bin_op(left, right)
         if abs(result) > MAX_MAGNITUDE:
             raise ValueError(
                 f"result magnitude too large (max {MAX_MAGNITUDE:g})"
@@ -83,12 +85,12 @@ def _eval(node: ast.AST) -> int | float:
         return result
 
     if isinstance(node, ast.UnaryOp):
-        op = _UNARY_OPS.get(type(node.op))
-        if op is None:
+        unary_op = _UNARY_OPS.get(type(node.op))
+        if unary_op is None:
             raise ValueError(
                 f"unary operator {type(node.op).__name__} not allowed"
             )
-        return op(_eval(node.operand))
+        return unary_op(_eval(node.operand))
 
     raise ValueError(f"node {type(node).__name__} not allowed")
 
