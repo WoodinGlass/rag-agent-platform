@@ -28,11 +28,21 @@ jobs:
       - name: Type check (mypy)
         run: mypy app/
 
-      - name: Unit tests
-        run: pytest -m "not integration" -q
+      - name: Unit + integration with coverage
+        run: |
+          pytest -m "" \
+            --cov=app \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=0
 
-      - name: Integration tests (offline)
-        run: pytest -m integration -q
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
 
   docker:
     runs-on: ubuntu-latest

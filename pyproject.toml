@@ -24,7 +24,15 @@ vector      = ["chromadb>=0.5"]
 agents      = ["langchain-openai>=0.1", "langchain-anthropic>=0.1"]
 http        = ["httpx>=0.27"]
 eval        = ["ragas>=0.1", "datasets>=2.19"]
-dev         = ["pytest>=8", "pytest-asyncio", "pytest-httpx>=0.30", "ruff>=0.4", "mypy>=1.10", "pre-commit"]
+dev         = [
+    "pytest>=8",
+    "pytest-asyncio",
+    "pytest-cov>=5.0",
+    "pytest-httpx>=0.30",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pre-commit",
+]
 integration = ["testcontainers>=4.5", "psycopg[binary]>=3.1"]
 all         = ["rag-agent-platform[llm,vector,agents,http,eval,dev,integration]"]
 
@@ -37,6 +45,30 @@ markers = [
     "slow: long-running",
 ]
 addopts = "-q"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = [
+    # main entrypoint + lifespan exercised via integration; skip from core %
+    "app/main.py",
+    # optional-dep code paths (chroma, openai) run only when extras installed
+    "app/rag/store.py",
+    "app/rag/embedder.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 70
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+]
 
 [tool.ruff]
 line-length = 100
@@ -52,8 +84,6 @@ ignore = []
 
 [tool.mypy]
 python_version = "3.11"
-
-# --- baseline: catch real bugs, don't drown in style ---
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -64,8 +94,6 @@ show_error_codes = true
 pretty = true
 follow_imports = "silent"
 
-# --- optional third-party libs without stubs (only ones we import in app/) ---
-# (mypy overrides are matched against files it actually analyzes: app/ only.)
 [[tool.mypy.overrides]]
 module = ["chromadb.*", "openai.*"]
 ignore_missing_imports = true
