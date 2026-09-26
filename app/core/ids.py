@@ -18,7 +18,7 @@ def content_hash(data: bytes) -> str:
 
 def doc_id(content_hash_hex: str, chunker_version: str) -> str:
     """Stable doc id from (content_hash, chunker_version). 32-char hex."""
-    key = f"{content_hash_hex}::{chunker_version}".encode("utf-8")
+    key = f"{content_hash_hex}::{chunker_version}".encode()
     return hashlib.sha256(key).hexdigest()[:32]
 
 
