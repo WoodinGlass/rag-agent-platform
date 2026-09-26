@@ -99,12 +99,14 @@ def _client(settings: Settings) -> TestClient:
     from app.agents.bootstrap import build_agent
     from app.agents.llm import FakeLLM
     from app.api.deps import get_app_settings
-    from app.api.middleware import CorrelationIdMiddleware
+    from app.api.middleware import CorrelationIdMiddleware, TenantMiddleware
     from app.api.routes import router
     from app.rag.embedder import FakeEmbedder
     from app.rag.store import MemoryStore
 
     app = FastAPI()
+    app.state.settings = settings  # visible to TenantMiddleware
+    app.add_middleware(TenantMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     app.include_router(router)
     app.dependency_overrides[get_app_settings] = lambda: settings

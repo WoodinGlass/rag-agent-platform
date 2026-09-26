@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 
 from app.agents.bootstrap import AgentStack, build_agent
 from app.agents.llm import FakeLLM
-from app.api.middleware import CorrelationIdMiddleware
+from app.api.middleware import CorrelationIdMiddleware, TenantMiddleware
 from app.api.routes import router
 from app.api.schemas import ErrorResponse
 from app.core.config import Settings, get_settings
@@ -89,6 +89,9 @@ def create_app() -> FastAPI:
         redoc_url=None,
         lifespan=lifespan,
     )
+    # order: outermost runs first. CID first (so all logs have it),
+    # then tenant (so auth rejection logs carry a cid).
+    app.add_middleware(TenantMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     app.include_router(router)
 

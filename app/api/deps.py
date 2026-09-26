@@ -1,22 +1,27 @@
 """FastAPI dependencies.
 
 Wiring lives here, not in global mutable state. Routes declare what they
-need via `Annotated[..., Depends(...)]` and get it. Swapping
-implementations (FakeLLM -> real LLM) is a one-line change here.
+need via `Annotated[..., Depends(...)]` and get it.
 
 The heavy lifting (building the AgentStack) is cached at app startup via
 `app.state` — see `app/main.py`.
+
+Tenant (M6.2): `get_tenant_id` is a yield-dependency. It resolves the
+tenant from `X-API-Key`, sets it on a contextvar, yields the value, and
+resets the contextvar in a `finally`. That makes the tenant visible to
+everything downstream — including tools called from inside the agent
+loop — without threading a parameter through every function.
 """
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Depends, Request
 
 from app.agents.agent import Agent
-from app.core.auth import AuthError, resolve_tenant
 from app.core.config import Settings, get_settings
 from app.core.logging import get_correlation_id
+from app.core.tenant import get_tenant_id as get_current_tenant
 from app.rag.pipeline import RagPipeline
 
 # ---------- basic accessors ----------
@@ -55,16 +60,14 @@ def get_pipeline(request: Request) -> RagPipeline:
 
 def get_tenant_id(
     settings: Annotated[Settings, Depends(get_app_settings)],
-    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
 ) -> str:
-    """Resolve the tenant id for this request.
+    """Return the tenant resolved by TenantMiddleware.
 
-    401 when auth is enabled and the key is missing or invalid.
+    Fallback: if middleware is not installed (e.g. minimal test app),
+    return the configured default tenant.
     """
-    try:
-        return resolve_tenant(x_api_key, settings)
-    except AuthError as e:
-        raise HTTPException(status_code=401, detail=str(e)) from e
+    tenant = get_current_tenant()
+    return tenant if tenant is not None else settings.default_tenant
 
 
 # ---------- typed aliases for cleaner signatures ----------

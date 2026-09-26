@@ -20,11 +20,14 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from app.core.auth import AuthError, resolve_tenant
+from app.core.config import get_settings
 from app.core.logging import (
     get_correlation_id,
     get_logger,
     set_correlation_id,
 )
+from app.core.tenant import set_tenant_id
 
 log = get_logger("app.api.access")
 
@@ -105,3 +108,47 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         # Use whatever cid is live now (inner code may have replaced it).
         response.headers[REQUEST_ID_HEADER] = get_correlation_id() or cid
         return response
+
+# Paths that must stay reachable without auth (monitoring, docs).
+_AUTH_EXEMPT_PATHS = {"/healthz", "/metrics", "/docs", "/redoc", "/openapi.json"}
+
+
+class TenantMiddleware(BaseHTTPMiddleware):
+    """Resolve tenant from X-API-Key and expose it via contextvar.
+
+    Runs early in the stack, alongside CorrelationIdMiddleware. Because
+    it lives in the async middleware layer, the contextvar set here is
+    visible to sync route handlers (Starlette copies the context when
+    running sync endpoints in the threadpool).
+
+    - Auth is enabled -> require X-API-Key, else 401.
+    - Auth is disabled -> set the default tenant.
+    - Monitoring paths (`/healthz`, `/metrics`, `/docs`) are always
+      reachable so probes and dashboards never need a key.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        # Prefer app.state.settings (set in create_app and in test apps)
+        # so dependency overrides in tests are honored. Fallback to the
+        # module singleton for apps that don't set it.
+        settings = getattr(request.app.state, "settings", None) or get_settings()
+
+        if request.url.path in _AUTH_EXEMPT_PATHS:
+            # Still set a tenant so downstream code doesn't see None.
+            set_tenant_id(settings.default_tenant)
+            return await call_next(request)
+
+        x_api_key = request.headers.get("X-API-Key")
+        try:
+            tenant = resolve_tenant(x_api_key, settings)
+        except AuthError as e:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": "unauthorized",
+                    "detail": str(e),
+                    "correlation_id": get_correlation_id(),
+                },
+            )
+        set_tenant_id(tenant)
+        return await call_next(request)
