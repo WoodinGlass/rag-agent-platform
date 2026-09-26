@@ -23,6 +23,7 @@ llm         = ["openai>=1.30", "anthropic>=0.30", "langchain>=0.2", "langgraph>=
 vector      = ["chromadb>=0.5"]
 agents      = ["langchain-openai>=0.1", "langchain-anthropic>=0.1"]
 langgraph   = ["langgraph>=0.2"]
+kafka       = ["kafka-python>=2.0"]
 http        = ["httpx>=0.27"]
 rerank      = ["sentence-transformers>=3.0"]
 otel        = [
@@ -41,7 +42,7 @@ dev         = [
     "pre-commit",
 ]
 integration = ["testcontainers>=4.5", "psycopg[binary]>=3.1"]
-all         = ["rag-agent-platform[llm,vector,agents,langgraph,http,rerank,otel,eval,dev,integration]"]
+all         = ["rag-agent-platform[llm,vector,agents,kafka,langgraph,http,rerank,otel,eval,dev,integration]"]
 
 [tool.setuptools.packages.find]
 include = ["app*", "evals*"]
