@@ -77,6 +77,8 @@ class Settings(BaseSettings):
     streaming_dedup_window: int = 1024
     # Idle sleep between empty polls (seconds).
     streaming_idle_sleep_s: float = 0.05
+    # Prefetch buffer size. 0 disables prefetching.
+    streaming_prefetch_n: int = 0
 
     # --- Logging ---
     log_level: str = "INFO"

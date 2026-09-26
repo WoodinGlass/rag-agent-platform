@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from app.core.logging import get_logger
 from app.core.tracing import span
 from app.streaming.events import Event
+from app.streaming.prefetch import Prefetcher
 from app.streaming.source import EventSource
 
 log = get_logger(__name__)
@@ -167,6 +168,33 @@ class StreamingIngestor:
                     break
         finally:
             log.info("streaming.stop", extra=self.stats.as_dict())
+
+
+    async def run_with_prefetch(
+        self,
+        *,
+        prefetch_n: int = 8,
+        poll_timeout_s: float | None = None,
+    ) -> None:
+        """Convenience: wrap source in a Prefetcher and run.
+
+        `prefetch_n` is the prefetcher buffer size. Passing 1 reduces to
+        the non-prefetch path (buffer of one). The prefetcher hides
+        source-side latency; the ingestor logic is unchanged.
+        """
+        prefetcher = Prefetcher(
+            self.source,
+            buffer_size=max(1, prefetch_n),
+            poll_timeout_s=poll_timeout_s or self.poll_timeout_s,
+        )
+        await prefetcher.start()
+        original_source = self.source
+        self.source = prefetcher
+        try:
+            await self.run()
+        finally:
+            await prefetcher.close()
+            self.source = original_source
 
     def stop(self) -> None:
         self._stop.set()
