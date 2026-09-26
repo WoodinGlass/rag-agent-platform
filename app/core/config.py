@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     llm_timeout_s: int = 30
     llm_max_retries: int = 3
 
+    # --- Agent backend (M6.1) ---
+    # state_machine: the deterministic loop in app/agents/agent.py (default)
+    # langgraph:     StateGraph-backed loop (requires [langgraph] extra)
+    agent_backend: Literal["state_machine", "langgraph"] = "state_machine"
+
     # --- Vector store ---
     vector_backend: Literal["memory", "chroma", "qdrant"] = "memory"
     chroma_path: str = "./data/chroma"
