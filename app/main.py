@@ -71,7 +71,8 @@ async def lifespan(app: FastAPI):
     configure_tracing(
         enabled=settings.otel_enabled,
         service_name=settings.otel_service_name,
-        console_exporter=settings.otel_console_exporter,
+        exporter=settings.otel_exporter,
+        otlp_endpoint=settings.otel_otlp_endpoint,
     )
     app.state.started_at = time.monotonic()
     app.state.stack = _build_stack(settings)

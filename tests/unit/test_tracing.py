@@ -63,14 +63,24 @@ otel = pytest.importorskip(
 
 
 def test_enabled_with_sdk_sets_flag():
-    configure_tracing(enabled=True, service_name="test-svc", console_exporter=False)
+    configure_tracing(
+        enabled=True,
+        service_name="test-svc",
+        exporter="otlp",
+        otlp_endpoint="http://127.0.0.1:9/v1/traces",
+    )
     assert is_enabled() is True
     # restore for other tests
     configure_tracing(enabled=False)
 
 
 def test_enabled_span_yields_usable_object():
-    configure_tracing(enabled=True, service_name="test-svc", console_exporter=False)
+    configure_tracing(
+        enabled=True,
+        service_name="test-svc",
+        exporter="otlp",
+        otlp_endpoint="http://127.0.0.1:9/v1/traces",
+    )
     try:
         with span("test.enabled", k=1, tenant="acme") as s:
             s.set_attribute("answer", 42)
@@ -81,9 +91,54 @@ def test_enabled_span_yields_usable_object():
 
 
 def test_enabled_span_records_exception_and_reraises():
-    configure_tracing(enabled=True, service_name="test-svc", console_exporter=False)
+    configure_tracing(
+        enabled=True,
+        service_name="test-svc",
+        exporter="otlp",
+        otlp_endpoint="http://127.0.0.1:9/v1/traces",
+    )
     try:
         with pytest.raises(ValueError, match="kaboom"), span("test.error"):
             raise ValueError("kaboom")
     finally:
         configure_tracing(enabled=False)
+
+# ---------- exporter selection (M6.3) ----------
+
+def test_build_exporter_console():
+    from app.core.tracing import _build_exporter
+
+    exp = _build_exporter("console", "unused")
+    from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+
+    assert isinstance(exp, ConsoleSpanExporter)
+
+
+def test_build_exporter_otlp():
+    from app.core.tracing import _build_exporter
+
+    exp = _build_exporter("otlp", "http://example.test:4318/v1/traces")
+    # OTLPSpanExporter has an ._endpoint attribute
+    assert "example.test" in str(getattr(exp, "_endpoint", ""))
+
+
+def test_build_exporter_unknown_raises():
+    from app.core.tracing import _build_exporter
+
+    with pytest.raises(ValueError, match="unknown otel exporter"):
+        _build_exporter("bogus", "x")
+
+
+def test_configure_tracing_otlp_end_to_end():
+    """OTLP path activates without connecting anywhere."""
+    configure_tracing(
+        enabled=True,
+        service_name="test-otlp",
+        exporter="otlp",
+        otlp_endpoint="http://127.0.0.1:9/unreachable",
+    )
+    try:
+        assert is_enabled() is True
+    finally:
+        configure_tracing(enabled=False)
+

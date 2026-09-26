@@ -6,9 +6,10 @@ Design:
 - OTel SDK is imported lazily — enabling requires the `[otel]` extra.
   If enable is requested but the SDK is missing, we log a warning and
   stay disabled. Never break the app because of tracing.
+- Two exporters: "console" (dev) and "otlp" (send to a collector).
+  Selection is via config; missing exporter package -> warning + disabled.
 - Configure once at startup (`app/main.py` lifespan).
-- Span attribute values are coerced to OTel's accepted primitives
-  (str/int/float/bool). Everything else becomes str.
+- Span attribute values are coerced to OTel's accepted primitives.
 """
 from __future__ import annotations
 
@@ -22,6 +23,8 @@ log = logging.getLogger(__name__)
 _service_name = "rag-agent-platform"
 _enabled = False
 _configured = False
+_exporter_kind = "console"
+_otlp_endpoint = "http://localhost:4318/v1/traces"
 
 
 class Span:
@@ -85,16 +88,42 @@ def is_enabled() -> bool:
     return _enabled
 
 
+def _build_exporter(kind: str, otlp_endpoint: str) -> Any:
+    """Return an exporter instance. Raises ImportError or ValueError."""
+    from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+
+    if kind == "console":
+        return ConsoleSpanExporter()
+
+    if kind == "otlp":
+        try:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter,
+            )
+        except ImportError as e:
+            raise ImportError(
+                "otlp exporter not installed; run: "
+                "pip install 'rag-agent-platform[otel]'"
+            ) from e
+        return OTLPSpanExporter(endpoint=otlp_endpoint)
+
+    raise ValueError(f"unknown otel exporter: {kind!r}")
+
+
 def configure_tracing(
     *,
     enabled: bool = False,
     service_name: str | None = None,
-    console_exporter: bool = True,
+    exporter: str = "console",
+    otlp_endpoint: str = "http://localhost:4318/v1/traces",
 ) -> None:
-    """Enable/disable tracing. Safe to call multiple times."""
-    global _service_name, _enabled, _configured
+    """Enable/disable tracing. Safe to call multiple times. Never raises."""
+    global _service_name, _enabled, _configured, _exporter_kind, _otlp_endpoint
+
     if service_name:
         _service_name = service_name
+    _exporter_kind = exporter
+    _otlp_endpoint = otlp_endpoint
 
     if not enabled:
         _enabled = False
@@ -107,10 +136,7 @@ def configure_tracing(
     try:
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import (
-            ConsoleSpanExporter,
-            SimpleSpanProcessor,
-        )
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
     except ImportError:
         log.warning(
             "OTEL_ENABLED=true but opentelemetry-sdk is not installed; "
@@ -119,25 +145,30 @@ def configure_tracing(
         _enabled = False
         return
 
+    try:
+        exporter_instance = _build_exporter(exporter, otlp_endpoint)
+    except (ImportError, ValueError) as e:
+        log.warning("tracing disabled: %s", e)
+        _enabled = False
+        return
+
     provider = TracerProvider()
-    if console_exporter:
-        provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
+    provider.add_span_processor(SimpleSpanProcessor(exporter_instance))
     trace.set_tracer_provider(provider)
 
     _configured = True
     _enabled = True
-    log.info("tracing enabled: service=%s console=%s", _service_name, console_exporter)
+    log.info(
+        "tracing enabled: service=%s exporter=%s endpoint=%s",
+        _service_name,
+        exporter,
+        otlp_endpoint if exporter == "otlp" else "-",
+    )
 
 
 @contextmanager
 def span(name: str, **attrs: Any) -> Iterator[Span]:
-    """Start a span. No-op when tracing is disabled.
-
-    Usage:
-        with span("pipeline.retrieve", k=5, tenant=tenant) as s:
-            hits = ...
-            s.set_attribute("n_hits", len(hits))
-    """
+    """Start a span. No-op when tracing is disabled."""
     if not _enabled:
         yield NoopSpan()
         return

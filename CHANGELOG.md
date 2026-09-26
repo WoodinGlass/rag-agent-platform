@@ -25,8 +25,7 @@ Versioning: [SemVer](https://semver.org/).
   - Store-level `tenant_id` filter (MemoryStore, ChromaStore `where`)
   - `TenantDep` route dependency: `/ingest` fully isolated; 401 on bad key
   - 26 new tests (parse, resolve, HTTP, isolation)
-  - **Known gap (M5.5):** `/query` still uses the startup-bound pipeline;
-    tenant-per-request through the agent loop is documented and scheduled
+  - ~~**Known gap:** `/query` used the startup-bound pipeline~~ — **fixed in M6.2**
 - **M5.4 — OpenTelemetry traces (opt-in)**
   - `app/core/tracing.py`: minimal span interface, NoopSpan, OTelSpan
   - Lazy `opentelemetry-sdk` import; missing SDK -> warning + disabled
@@ -36,6 +35,30 @@ Versioning: [SemVer](https://semver.org/).
   - Failures inside span never break the app
   - 10 new tests (coercion, noop, enabled path when SDK present)
   - README § Observability; `.env.example` updated
+
+
+**M6.1 — LangGraph backend (opt-in)**
+- `app/agents/backend.py`: runtime-checkable `AgentBackend` Protocol
+- `app/agents/langgraph_backend.py`: StateGraph loop (plan -> execute -> finish)
+- `pyproject.toml`: new `[langgraph]` extra
+- config: `agent_backend = state_machine | langgraph` (default: state machine)
+- parity tests with the state machine (same script -> same output)
+
+**M6.2 — Tenant-per-request via contextvar**
+- `app/core/tenant.py`: contextvar + get/set/reset
+- `app/api/middleware.py`: TenantMiddleware resolves X-API-Key, sets context
+- `/healthz`, `/metrics`, `/docs` exempt from auth
+- `tools/adapters/rag.py`: reads tenant from context; agent loop unchanged
+- closes the M5.3 known gap
+
+**M6.3 — OTLP exporter + collector example**
+- `pyproject.toml`: `[otel]` includes `opentelemetry-exporter-otlp-proto-http`
+- `app/core/tracing.py`: exporter selection (`console` | `otlp`), never raises
+- `app/core/config.py`: `otel_exporter`, `otel_otlp_endpoint`
+- `docker/otel-collector.yml`: minimal collector (OTLP -> stdout)
+- `docker/docker-compose.yml`: `otel-collector` service, profile `otel`
+- `.env.example`, README § Observability updated
+- 4 new tests (exporter selection, enable path)
 
 **M1 — Local RAG (deterministic core)**
 - `app/core`: pydantic-settings config, deterministic ids, JSON logging

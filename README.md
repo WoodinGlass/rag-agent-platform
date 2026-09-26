@@ -275,8 +275,26 @@ pipeline.retrieve      k, fetch_k, n_candidates, n_returned, reranker
 
 The SDK is imported lazily - enabling without installing the `[otel]`
 extra logs a warning and stays disabled. Tracing failures never crash
-the app. The default exporter is `ConsoleSpanExporter`; an OTLP
-exporter is a natural next step (roadmap).
+the app.
+
+### Exporters
+
+Two exporters, chosen with `OTEL_EXPORTER`:
+
+- `console` (default) - prints spans to stdout, dev-friendly.
+- `otlp` - sends spans to an OpenTelemetry Collector via OTLP HTTP.
+  Set `OTEL_OTLP_ENDPOINT` to the collector's `/v1/traces` path.
+
+A minimal collector is bundled for local dev:
+
+```bash
+docker compose -f docker/docker-compose.yml --profile otel up --build
+```
+
+This starts `otel-collector` alongside the API + Qdrant. The collector
+receives OTLP on `4317` (gRPC) and `4318` (HTTP) and logs every span.
+For production, replace the collector's `logging` exporter with a real
+backend (Jaeger, Tempo, Honeycomb, Datadog).
 
 ---
 
@@ -396,9 +414,9 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 ### M6 — Extensibility [in progress]
 
 - [x] LangGraph backend (opt-in) — `AgentBackend` protocol, parity-tested with the state machine
+- [x] Tenant-per-request through the agent loop — contextvar, no agent changes
+- [x] OTLP exporter + collector example — `docker/otel-collector.yml` (profile `otel`)
 - [ ] Streaming ingestion (Kafka / S3 events)
-- [ ] OTLP exporter + collector example (`docker/otel-collector.yml`)
-- [ ] Tenant-per-request through the agent loop (contextvar)
 
 ---
 

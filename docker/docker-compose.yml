@@ -69,6 +69,18 @@ services:
       retries: 5
       start_period: 10s
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.109.0
+    container_name: rag-otel
+    profiles: ["otel"]
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./otel-collector.yml:/etc/otelcol/config.yml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    restart: unless-stopped
+
 volumes:
   api-data:
   qdrant-data:

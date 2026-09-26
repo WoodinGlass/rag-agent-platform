@@ -57,13 +57,14 @@ class Settings(BaseSettings):
     tenant_keys: str = ""
     default_tenant: str = "public"
 
-    # --- Tracing (M5.4) ---
+    # --- Tracing (M5.4, M6.3) ---
     # Off by default: no deps needed, no runtime cost.
     otel_enabled: bool = False
     otel_service_name: str = "rag-agent-platform"
-    # Console exporter prints spans to stdout. Fine for dev; use an OTLP
-    # exporter in production (roadmap).
-    otel_console_exporter: bool = True
+    # Exporter: "console" (dev, spans to stdout) | "otlp" (send to collector)
+    otel_exporter: Literal["console", "otlp"] = "console"
+    # OTLP HTTP endpoint, e.g. http://otel-collector:4318/v1/traces
+    otel_otlp_endpoint: str = "http://localhost:4318/v1/traces"
 
     # --- Logging ---
     log_level: str = "INFO"
