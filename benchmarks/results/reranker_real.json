@@ -1,0 +1,57 @@
+{
+  "generated_at": "2026-09-27T02:01:38+00:00",
+  "skipped": false,
+  "config": {
+    "k": 5,
+    "chunk_size": 200,
+    "embedder": "fake",
+    "retrieve_multiplier": 2,
+    "warmup": 2,
+    "corpus_size": 12,
+    "eval_set_size": 15,
+    "model": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  },
+  "baseline": {
+    "reranker": "identity",
+    "k": 5,
+    "n": 15,
+    "hit_rate": 1.0,
+    "mrr": 0.7189,
+    "precision": 0.2533,
+    "recall": 0.9667,
+    "latency_ms": {
+      "mean": 2.04,
+      "p50": 2.044,
+      "p95": 2.074,
+      "max": 4.18
+    }
+  },
+  "reranked": {
+    "reranker": "cross-encoder",
+    "k": 5,
+    "n": 15,
+    "hit_rate": 0.9333,
+    "mrr": 0.88,
+    "precision": 0.2667,
+    "recall": 0.9,
+    "latency_ms": {
+      "mean": 298.953,
+      "p50": 274.531,
+      "p95": 428.11,
+      "max": 500.0
+    }
+  },
+  "delta": {
+    "quality": {
+      "hit_rate": -0.0667,
+      "mrr": 0.1611,
+      "precision": 0.0134,
+      "recall": -0.0667
+    },
+    "latency": {
+      "mean_ms": 296.913,
+      "p50_ms": 272.487,
+      "p95_ms": 426.036
+    }
+  }
+}
