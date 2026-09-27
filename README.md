@@ -574,7 +574,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
   - `docs/provider-smoke.md` (evidence + model-selection reasoning)
   - `docs/limitations.md` (honest list of what is not shipped)
   - README: provider-smoke badge + links
-- [~] M9.3 Qdrant adapter
+- [x] M9.3 Qdrant adapter
 - [x] M9.3a `app/rag/qdrant_store.py` + `[qdrant]` extra
 - [x] M9.3b Config (`qdrant_*`) + `get_store()` + `main.py` wiring
 - [x] **M9.3c** Offline tests (mock client, ~22 tests)
