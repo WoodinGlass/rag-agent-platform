@@ -10,6 +10,11 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    services:
+      qdrant:
+        image: qdrant/qdrant:v1.10.1
+        ports:
+          - 6333:6333
     steps:
       - uses: actions/checkout@v4
 
@@ -17,16 +22,30 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Wait for Qdrant
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:6333/readyz >/dev/null 2>&1; then
+              echo "qdrant ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "qdrant did not become ready"
+          exit 1
+
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,http,vector,otel]"
-          # install langgraph explicitly (defensive: extras resolution
-          # can silently skip missing extras; this fails loudly if absent)
+          pip install -e ".[dev,http,vector,otel,qdrant]"
+          # defensive: extras resolution can silently skip missing
+          # packages; these installs fail loudly if the extras are wrong.
           pip install "langgraph>=0.2"
 
-      - name: Verify langgraph import
-        run: python -c "import langgraph; print('langgraph OK')"
+      - name: Verify optional imports
+        run: |
+          python -c "import langgraph; print('langgraph OK')"
+          python -c "import qdrant_client; print('qdrant_client OK')"
 
       - name: Lint (ruff)
         run: ruff check app/ tests/ evals/ scripts/ benchmarks/
@@ -35,8 +54,10 @@ jobs:
         run: mypy app/
 
       - name: Test with coverage
+        env:
+          QDRANT_URL: http://localhost:6333
         run: |
-          pytest -m "" \
+          pytest -m "not provider" \
             --cov=app \
             --cov-report=term-missing \
             --cov-report=xml \
