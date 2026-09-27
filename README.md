@@ -563,6 +563,37 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Real cross-encoder reranker benchmark (`[rerank]` extra) — see [`docs/benchmarks.md`](docs/benchmarks.md)
 - [x] Kafka consumer group rebalance — hooks + docs in [`docs/kafka-rebalance.md`](docs/kafka-rebalance.md)
 
+## M9 — Post-MVP polish
+
+- [x] M9.1 Real LLM provider path (OpenAI-compatible + Anthropic)
+  - `OpenAILLM` (base_url, max_tokens), `AnthropicLLM`, `get_llm()`
+  - `GROQ_DEFAULT_MODEL = qwen/qwen3.8-27b`
+  - Provider smoke test (marker `provider`, self-skips without key)
+  - `.github/workflows/provider-smoke.yml` (manual + weekly)
+- [x] M9.2 Documentation polish
+  - `docs/provider-smoke.md` (evidence + model-selection reasoning)
+  - `docs/limitations.md` (honest list of what is not shipped)
+  - README: provider-smoke badge + links
+- [~] M9.3 Qdrant adapter
+- [x] M9.3a `app/rag/qdrant_store.py` + `[qdrant]` extra
+- [x] M9.3b Config (`qdrant_*`) + `get_store()` + `main.py` wiring
+- [x] **M9.3c** Offline tests (mock client, ~22 tests)
+- [ ] **M9.3d** Integration test skip-friendly (real Qdrant service)
+- [ ] **M9.3e** Docs + CHANGELOG + commit final
+- [ ] **M9.4** Rate limiting + max body size
+- [ ] **M9.5** Coverage `core/logging.py` 45% → 90%
+- [ ] **M9.6** Benchmark at 1k documents (synthetic)
+- [ ] **M9.7** Prometheus exposition format at `/metrics/prom`
+- [ ] **M9.8** Screenshot / GIF in README
+
+## M10+ — Future (no schedule)
+
+- [ ] Static membership (KIP-345) support
+- [ ] Cooperative-sticky assignor integration test with a real broker
+- [ ] Cross-partition transactional writes (only if the sink is Kafka)
+- [ ] OTel collector with a real backend (Jaeger / Tempo)
+- [ ] Live deployment (Fly.io / Railway)
+
 ---
 
 ## License
