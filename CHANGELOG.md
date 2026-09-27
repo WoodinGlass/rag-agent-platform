@@ -6,6 +6,16 @@ Versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+(no changes yet)
+
+---
+
+## [0.1.0] - 2026-09-28
+
+First public release. Milestones M1–M9 complete: local RAG core,
+agent + tools, FastAPI + Docker, CI + eval, hardening, extensibility,
+streaming ingestion, Qdrant adapter, Prometheus metrics, SVG previews.
+
 ### Added
 
 **M5 — Hardening (in progress)**
@@ -280,8 +290,3 @@ Versioning: [SemVer](https://semver.org/).
 - CI: lint (ruff) + unit + integration on push/PR
 - CI: docker job — compose validate + image build + container smoke test
 - Initial repo scaffold: README, LICENSE, pyproject, .env.example, .gitignore
-
-## [0.1.0] - 2025-XX-XX
-
-### Added
-- Initial scaffold
