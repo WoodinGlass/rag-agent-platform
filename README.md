@@ -632,7 +632,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
   - [x] **M9.3d** Integration test skip-friendly (real Qdrant service)
   - [x] **M9.3e** Docs + CHANGELOG + commit final
 - [x] **M9.4** Rate limiting + max body size — opt-in token bucket + Content-Length cap
-- [ ] **M9.5** Coverage `core/logging.py` 45% → 90%
+- [x] **M9.5** Coverage `core/logging.py` 45% → 100% (threshold raised to 89)
 - [x] **M9.6** Benchmark at 1k documents (synthetic) — see [`docs/benchmarks.md`](docs/benchmarks.md) § Scale
 - [ ] **M9.7** Prometheus exposition format at `/metrics/prom`
 - [ ] **M9.8** Screenshot / GIF in README
