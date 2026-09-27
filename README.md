@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/WoodinGlass/rag-agent-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/WoodinGlass/rag-agent-platform/actions/workflows/ci.yml)
 [![Eval](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/WoodinGlass/rag-agent-platform/main/evals/reports/badge.json)](https://github.com/WoodinGlass/rag-agent-platform/blob/main/evals/reports/latest.md)
+[![Provider smoke](https://img.shields.io/badge/provider-smoke%20validated%20(Groq)-brightgreen)](docs/provider-smoke.md)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -436,6 +437,28 @@ Retrieval eval runs on every PR (offline, free). Generation eval runs
 weekly + on-demand via `.github/workflows/eval.yml`; it skips cleanly
 when `OPENAI_API_KEY` is absent.
 
+### Provider smoke test
+
+The offline test suite uses `FakeLLM` / `FakeEmbedder`. The **real**
+provider path (OpenAI-compatible chat completions, plus Anthropic) is
+exercised separately:
+
+```bash
+# Groq (free tier; the current default smoke target)
+GROQ_API_KEY=gsk_... pytest -m provider -v
+
+# OpenAI (also enables the embeddings tests)
+OPENAI_API_KEY=sk-... pytest -m provider -v
+```
+
+Or via the GitHub Actions workflow **Provider smoke** (manual + weekly).
+The workflow self-skips when neither key is set as a repository secret,
+so it never blocks the offline CI.
+
+**Last verified:** 2026-09-27 against Groq (`qwen/qwen3.8-27b`) —
+**4 passed, 2 skipped**. See [`docs/provider-smoke.md`](docs/provider-smoke.md)
+for the raw output and the reasoning behind the model choice.
+
 ---
 
 ## Failure modes & runbooks
@@ -458,6 +481,9 @@ Design deep-dives:
   [`docs/exactly-once.md`](docs/exactly-once.md)
 - Kafka consumer group rebalance:
   [`docs/kafka-rebalance.md`](docs/kafka-rebalance.md)
+- Provider smoke test evidence:
+  [`docs/provider-smoke.md`](docs/provider-smoke.md)
+- **Known limitations:** [`docs/limitations.md`](docs/limitations.md)
 
 ---
 

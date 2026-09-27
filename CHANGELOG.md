@@ -61,6 +61,12 @@ Versioning: [SemVer](https://semver.org/).
 - 4 new tests (exporter selection, enable path)
 
 **M9 — Post-MVP polish**
+- **M9.2 — Documentation polish**
+  - `docs/provider-smoke.md`: raw evidence + model-selection reasoning
+    (gpt-oss-20b native tool conflict; allam-2-7b too small; qwen3.8-27b
+    + max_tokens=256 fits Groq free tier)
+  - `docs/limitations.md`: honest list of what is not shipped
+  - README: new badge (provider-smoke validated), link to both docs
 - **M9.1 — Real LLM provider path (smoke-tested)**
   - `app/agents/llm.py`: `OpenAILLM` gains `base_url` +
     `max_tokens`; works with any OpenAI-compatible endpoint
