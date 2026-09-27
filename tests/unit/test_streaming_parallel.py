@@ -197,13 +197,22 @@ async def test_stop_is_idempotent():
 # ---------- no partitions ----------
 
 @pytest.mark.asyncio
-async def test_no_partitions_returns_immediately():
+async def test_no_partitions_waits_for_stop():
+    """No initial partitions -> run() blocks until stop() (a rebalance
+    can add partitions later). Stats start empty.
+    """
     src = InMemoryPartitionedSource()
 
     async def handler(e: Event) -> None:
         pass
 
     ing = ParallelIngestor(src, handler)
+
+    async def stopper():
+        await asyncio.sleep(0.1)
+        ing.stop()
+
+    asyncio.create_task(stopper())
     await asyncio.wait_for(ing.run(), timeout=1.0)
     assert ing.stats.as_dict()["totals"]["committed"] == 0
 
@@ -227,7 +236,9 @@ async def test_ingestor_for_returns_per_partition_instance():
     asyncio.create_task(stopper())
     await ing.run()
 
-    assert ing.ingestor_for("x") is not None
+    # after run() completes, partitions are revoked; stats are preserved
+    assert "x" in ing.stats.per_partition
+    assert ing.ingestor_for("x") is None  # cleaned up after revoke
     assert ing.ingestor_for("missing") is None
 
 # ---------- M8.1: bounded prefetch across partitions ----------

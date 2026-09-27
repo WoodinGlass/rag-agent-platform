@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     # per-partition still bound by streaming_prefetch_n).
     streaming_prefetch_budget_total: int = 0
 
+    # Rebalance grace period (seconds): how long to wait for in-flight
+    # work before forcing a partition revoke. Only used when the
+    # underlying broker drives rebalance (Kafka consumer groups).
+    streaming_rebalance_grace_s: float = 5.0
+
     # Dedup store: memory (LRU, lost on restart) | sqlite (durable)
     streaming_dedup_backend: Literal["memory", "sqlite"] = "memory"
     # Path used when streaming_dedup_backend=sqlite
