@@ -61,6 +61,15 @@ Versioning: [SemVer](https://semver.org/).
 - 4 new tests (exporter selection, enable path)
 
 **M8 — Backlog (post-MVP)**
+- **M8.2 — Durable dedup state**
+  - `app/streaming/dedup.py`: `DedupStore` protocol + `InMemoryDedupStore`
+  - `app/streaming/sqlite_dedup.py`: `SQLiteDedupStore` (stdlib only)
+  - `StreamingIngestor(dedup_store=...)` — backward compat with
+    `dedup_window` (builds the in-memory default)
+  - config: `streaming_dedup_backend` (memory | sqlite),
+    `streaming_dedup_sqlite_path`, `streaming_dedup_ttl_s`
+  - 15 tests: LRU behavior, TTL prune, persistence across restart,
+    ingestor integration
 - **M8.1 — Bounded prefetch across partitions**
   - `ParallelIngestor(prefetch_n, prefetch_budget_total)`
   - budget divided deterministically across partitions:

@@ -83,6 +83,13 @@ class Settings(BaseSettings):
     # per-partition still bound by streaming_prefetch_n).
     streaming_prefetch_budget_total: int = 0
 
+    # Dedup store: memory (LRU, lost on restart) | sqlite (durable)
+    streaming_dedup_backend: Literal["memory", "sqlite"] = "memory"
+    # Path used when streaming_dedup_backend=sqlite
+    streaming_dedup_sqlite_path: str = "./data/dedup.sqlite"
+    # TTL for durable dedup entries (seconds). Only used by sqlite.
+    streaming_dedup_ttl_s: float = 86400.0
+
     # --- Logging ---
     log_level: str = "INFO"
     log_json: bool = True

@@ -19,12 +19,12 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from app.core.logging import get_logger
 from app.core.tracing import span
+from app.streaming.dedup import DedupStore, InMemoryDedupStore
 from app.streaming.events import Event
 from app.streaming.prefetch import Prefetcher
 from app.streaming.source import EventSource
@@ -68,6 +68,7 @@ class StreamingIngestor:
         dedup_window: int = 1024,
         idle_sleep_s: float = 0.05,
         retry_backoff_base_s: float = 0.1,
+        dedup_store: DedupStore | None = None,
     ) -> None:
         if max_retries < 0:
             raise ValueError("max_retries must be >= 0")
@@ -83,18 +84,18 @@ class StreamingIngestor:
         self.retry_backoff_base_s = retry_backoff_base_s
 
         self.stats = IngestorStats()
-        self._seen: OrderedDict[str, None] = OrderedDict()
+        # Backward compat: caller may pass `dedup_store` explicitly, or
+        # rely on `dedup_window` (which builds the default in-memory LRU).
+        self._dedup: DedupStore = dedup_store or InMemoryDedupStore(
+            max_size=dedup_window
+        )
         self._stop = asyncio.Event()
 
     # ---------- dedup ----------
 
     def _is_duplicate(self, event_id: str) -> bool:
-        if event_id in self._seen:
-            return True
-        self._seen[event_id] = None
-        while len(self._seen) > self.dedup_window:
-            self._seen.popitem(last=False)
-        return False
+        """True if already seen. Delegates to the dedup store."""
+        return not self._dedup.add_if_new(event_id)
 
     # ---------- handler with retry ----------
 
@@ -167,6 +168,11 @@ class StreamingIngestor:
                 if not keep_going:
                     break
         finally:
+            # Best-effort close; safe to call multiple times.
+            try:
+                self._dedup.close()
+            except Exception:
+                log.debug("ingestor.dedup_close_failed", exc_info=True)
             log.info("streaming.stop", extra=self.stats.as_dict())
 
 

@@ -173,8 +173,10 @@ Guarantees:
 
 - **At-least-once delivery.** An event is committed only after the
   handler returns successfully.
-- **Bounded dedup.** Event ids seen within `STREAMING_DEDUP_WINDOW` are
-  skipped, so broker redelivery does not double-ingest.
+- **Dedup.** Event ids seen recently are skipped, so broker
+  redelivery does not double-ingest. In-memory LRU by default;
+  durable SQLite via `STREAMING_DEDUP_BACKEND=sqlite` (survives
+  worker restarts; TTL-pruned).
 - **Retry with backoff.** Handler failures retry up to
   `STREAMING_MAX_RETRIES`; on give-up the event is not committed.
 - **One event in flight.** Predictable memory; prefetch is opt-in
