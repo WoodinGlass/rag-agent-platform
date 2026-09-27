@@ -33,10 +33,11 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 - **Reranker:** Identity (default), Fake (heuristic for tests), Cross-encoder (opt-in via `[rerank]`)
 - **Schemas:** Pydantic v2 (`extra="forbid"` for contract enforcement)
 - **Eval:** offline retrieval metrics (hit-rate, MRR, precision, recall) on every PR; Ragas (faithfulness, answer relevancy, context precision) via LLM judge on weekly/manual runs
-- **Observability:** structured JSON logs + correlation id; `/metrics` endpoint; OpenTelemetry traces (opt-in)
-- **Auth:** opt-in API-key multi-tenant (X-API-Key)
+- **Observability:** structured JSON logs + correlation id; `/metrics` endpoint; OpenTelemetry traces (opt-in, console or OTLP exporter)
+- **Auth:** opt-in API-key multi-tenant (X-API-Key); tenant propagated via contextvar through the agent loop
+- **Streaming ingestion:** `EventSource` protocol; `InMemoryQueueSource`, `KafkaEventSource`, `S3ObjectSource` adapters; `ParallelIngestor` with consumer-group rebalance hooks
 - **Packaging:** `pyproject.toml` (single source of truth)
-- **Infra:** Docker + docker-compose, GitHub Actions CI
+- **Infra:** Docker + docker-compose, GitHub Actions CI (lint + type + coverage + docker smoke + eval)
 
 ---
 
@@ -62,12 +63,13 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 | **Deterministic vs non-deterministic** | Ingest + retrieval deterministic; generation non-deterministic | Enables re-ingest without duplicates |
 | **Payload vs pipeline** | Payload = documents + embeddings; Pipeline = chunk → embed → retrieve → generate | Clear separation for testing |
 | **Storage tier** | Small structured: SQLite (dev) / Postgres (prod). Vectors: Chroma → Qdrant | No refactor when scaling |
-| **Ingestion mode** | Batch first; streaming later behind flag | MVP velocity |
+| **Ingestion mode** | Batch first; streaming behind a protocol | Same contract, two adapters |
 | **Idempotency key** | `sha256(file_bytes) + chunker_version` (+ tenant namespace) | Re-ingest is a no-op |
 | **Agent loop** | Two backends, one protocol; state machine default, LangGraph opt-in | Choice without rewrite; parity-tested |
 | **Pure vs IO** | Tools pure; IO in `tools/adapters/` | Unit tests never touch network/disk |
-| **Multi-tenant** | Opt-in; tenant-scoped doc ids + store filter | Single-tenant deploy stays simple |
+| **Multi-tenant** | Opt-in; tenant-scoped doc ids + contextvar propagation | Single-tenant deploy stays simple |
 | **Tracing** | Opt-in; no-op default; lazy SDK | Zero cost when off |
+| **Delivery semantics** | At-least-once + idempotent handler = effectively-once | Kafka EOS does not apply to a Kafka→vector-store topology |
 | **Failure modes** | LLM timeout → retry w/ jitter. Store down → circuit breaker. API → 503 + CID in logs | See `docs/runbooks/` |
 
 ---
@@ -87,6 +89,18 @@ rag-agent-platform/
 │   │   ├── registry.py      # ToolRegistry
 │   │   └── schema.py        # AgentOutput / Citation / ToolCall
 │   ├── rag/                 # chunker, embedder, store, pipeline, reranker
+│   ├── streaming/           # EventSource protocol + adapters + ingestor
+│   │   ├── source.py        # EventSource protocol
+│   │   ├── events.py        # Event envelope
+│   │   ├── memory_source.py # InMemoryQueueSource (offline)
+│   │   ├── kafka_source.py  # KafkaEventSource (opt-in [kafka])
+│   │   ├── s3_source.py     # S3ObjectSource (opt-in [s3])
+│   │   ├── ingestor.py      # StreamingIngestor (at-least-once + dedup)
+│   │   ├── dedup.py         # DedupStore protocol + InMemory LRU
+│   │   ├── sqlite_dedup.py  # SQLiteDedupStore (durable)
+│   │   ├── prefetch.py      # Prefetcher (bounded buffer)
+│   │   ├── partitioned.py   # PartitionedSource protocol
+│   │   └── parallel_ingestor.py  # ParallelIngestor + rebalance hooks
 │   ├── tools/               # tool implementations + IO adapters
 │   │   ├── adapters/        # rag.py, http.py (impure boundaries)
 │   │   ├── base.py          # Tool protocol
@@ -94,16 +108,20 @@ rag-agent-platform/
 │   │   ├── search_docs.py   # wraps RagPipeline
 │   │   └── web_fetch.py     # HTTP GET with timeout + retry
 │   ├── api/                 # routes, schemas, deps, middleware
-│   ├── core/                # config, logging, ids, metrics, auth, tracing
+│   ├── core/                # config, logging, ids, metrics, auth, tenant, tracing
 │   └── main.py              # application entrypoint (lifespan)
 ├── benchmarks/              # offline latency + cost model + reranker delta
+│   ├── run.py               # ingest/retrieve latency + cost projection
+│   ├── reranker_delta.py    # identity vs FakeReranker
+│   ├── reranker_real.py     # identity vs CrossEncoderReranker
+│   └── results/             # latest.{json,md}, reranker_*.{json,md}
 ├── evals/                   # retrieval + Ragas CLI, corpora, reports
 ├── tests/
 │   ├── unit/                # fast, offline (default)
 │   └── integration/         # end-to-end (marker: integration)
-├── docker/                  # Dockerfile (multi-stage) + docker-compose.yml
-├── docs/                    # architecture.md + runbooks/ + benchmarks.md
-├── scripts/                 # agent_demo.py, ingest_demo.py
+├── docker/                  # Dockerfile (multi-stage) + compose + otel-collector
+├── docs/                    # architecture, benchmarks, exactly-once, kafka-rebalance, runbooks
+├── scripts/                 # agent_demo.py, ingest_demo.py, stream_demo.py
 ├── .github/workflows/       # ci.yml, eval.yml
 ├── .env.example
 ├── CHANGELOG.md
@@ -130,10 +148,13 @@ python scripts/ingest_demo.py --query "What is RAG?"
 # 4. run the agent end-to-end (offline, no API key needed)
 python scripts/agent_demo.py
 
-# 5. run API
+# 5. run the streaming demo (offline, no broker needed)
+python scripts/stream_demo.py --n 5 --duplicates 2
+
+# 6. run API
 uvicorn app.main:app --reload
 
-# 6. query
+# 7. query
 curl -X POST localhost:8000/query \
   -H "Content-Type: application/json" \
   -d '{"question": "What is RAG?"}'
@@ -143,6 +164,9 @@ curl -X POST localhost:8000/query \
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build
+
+# with the OTel collector (profile otel)
+docker compose -f docker/docker-compose.yml --profile otel up --build
 ```
 
 ---
@@ -151,10 +175,10 @@ docker compose -f docker/docker-compose.yml up --build
 
 Two modes, chosen at the deployment level:
 
-- **Batch (default)** - `POST /ingest` pushes bytes through the pipeline
+- **Batch (default)** — `POST /ingest` pushes bytes through the pipeline
   synchronously. Fine for small corpora and dev.
-- **Streaming** - a pull-based consumer loop ingests events from a
-  queue. Chosen with `STREAMING_BACKEND` (`memory` | `kafka`).
+- **Streaming** — a pull-based consumer loop ingests events from a
+  queue. Chosen with `STREAMING_BACKEND` (`memory` | `kafka` | `s3`).
 
 Streaming is built around a small protocol so the loop and the
 broker are decoupled:
@@ -189,22 +213,19 @@ Guarantees:
 
 Adapters:
 
-- `InMemoryQueueSource` - offline, deterministic, used by the demo
+- `InMemoryQueueSource` — offline, deterministic, used by the demo
   and tests.
-- `KafkaEventSource` - opt-in via `[kafka]` extra; lazy import so
+- `KafkaEventSource` — opt-in via `[kafka]` extra; lazy import so
   the package stays light when unused.
-- `S3ObjectSource` - opt-in via `[s3]` extra; polls a bucket for new
+- `S3ObjectSource` — opt-in via `[s3]` extra; polls a bucket for new
   objects. Works with any S3-compatible service (MinIO, R2, B2).
-- `InMemoryPartitionedSource` + `ParallelIngestor` - fan out to one
+- `InMemoryPartitionedSource` + `ParallelIngestor` — fan out to one
   `StreamingIngestor` per partition and run them concurrently via
   `asyncio.gather`. Per-partition commits stay independent; one
-  partition crashing does not affect the others.
-
-Try it offline:
-
-```bash
-python scripts/stream_demo.py --n 5 --duplicates 2
-```
+  partition crashing does not affect the others. Consumer group
+  rebalance is supported via `on_partitions_assigned` /
+  `on_partitions_revoked`; see
+  [`docs/kafka-rebalance.md`](docs/kafka-rebalance.md).
 
 ---
 
@@ -218,9 +239,15 @@ By default the API runs single-tenant: every request is treated as the
 `public` tenant. Set `TENANT_AUTH_ENABLED=true` and provide
 `TENANT_KEYS=key1:tenantA,key2:tenantB` to require an `X-API-Key`
 header. Ingestion is tenant-scoped (same bytes in two tenants produce
-different `doc_id`s). Store-level retrieval accepts an optional
-`tenant_id` filter. `X-API-Key` is validated at the HTTP boundary;
-missing or invalid keys return `401`.
+different `doc_id`s), and retrieval is tenant-filtered end-to-end —
+including through the agent loop. `X-API-Key` is validated at the HTTP
+boundary; missing or invalid keys return `401`. Monitoring paths
+(`/healthz`, `/metrics`, `/docs`) are always reachable.
+
+Implementation: the tenant is resolved once per request and stored on a
+`contextvar` (`app.core.tenant`). Tools read it ambiently, so the agent
+loop does not need to know about tenants. The contextvar is reset when
+the request finishes.
 
 ```bash
 # auth enabled: missing or bad key -> 401
@@ -305,9 +332,13 @@ curl -s -X POST localhost:8000/query \
   -d '{"question":"hi"}'
 ```
 
-The compose stack also boots **Qdrant** on ports `6333` (HTTP/dashboard) and `6334` (gRPC). Set `VECTOR_BACKEND=qdrant` once the Qdrant adapter lands (M6+); today the API defaults to `memory` so the stack works with zero config.
+The compose stack also boots **Qdrant** on ports `6333` (HTTP/dashboard)
+and `6334` (gRPC), and an **OTel collector** under the `otel` profile.
+Set `VECTOR_BACKEND=qdrant` once the Qdrant adapter lands; today the API
+defaults to `memory` so the stack works with zero config.
 
-Config surface: see `.env.example`. All knobs come from env — nothing is hardcoded. The image runs as a non-root user and ships a `HEALTHCHECK`.
+Config surface: see `.env.example`. All knobs come from env — nothing is
+hardcoded. The image runs as a non-root user and ships a `HEALTHCHECK`.
 
 ---
 
@@ -315,11 +346,11 @@ Config surface: see `.env.example`. All knobs come from env — nothing is hardc
 
 Three layers, all opt-in and portfolio-friendly:
 
-1. **Structured JSON logs** - every request carries a correlation id
+1. **Structured JSON logs** — every request carries a correlation id
    (`X-Request-ID`); grep one id to see the full story.
-2. **In-process metrics** - `/metrics` exposes counters + latency
+2. **In-process metrics** — `/metrics` exposes counters + latency
    histograms (ingest, query, tool calls).
-3. **OpenTelemetry traces** - off by default; enable with
+3. **OpenTelemetry traces** — off by default; enable with
    `OTEL_ENABLED=true` and `pip install 'rag-agent-platform[otel]'`.
 
 Span shape when tracing is on:
@@ -332,9 +363,11 @@ http.query             tenant, question_len
     tool.calculator    ok, latency_ms
 pipeline.ingest        tenant, doc_id, n_chunks
 pipeline.retrieve      k, fetch_k, n_candidates, n_returned, reranker
+streaming.handle       event_id, attempt
+parallel.partition     partition
 ```
 
-The SDK is imported lazily - enabling without installing the `[otel]`
+The SDK is imported lazily — enabling without installing the `[otel]`
 extra logs a warning and stays disabled. Tracing failures never crash
 the app.
 
@@ -342,8 +375,8 @@ the app.
 
 Two exporters, chosen with `OTEL_EXPORTER`:
 
-- `console` (default) - prints spans to stdout, dev-friendly.
-- `otlp` - sends spans to an OpenTelemetry Collector via OTLP HTTP.
+- `console` (default) — prints spans to stdout, dev-friendly.
+- `otlp` — sends spans to an OpenTelemetry Collector via OTLP HTTP.
   Set `OTEL_OTLP_ENDPOINT` to the collector's `/v1/traces` path.
 
 A minimal collector is bundled for local dev:
@@ -394,11 +427,14 @@ Latest report: [`evals/reports/latest.md`](evals/reports/latest.md)
 | p95 latency (retrieve) | <= 2.5 s | **3.168 ms** — see [`docs/benchmarks.md`](docs/benchmarks.md) |
 | Cost / 1k queries | <= $0.50 | **$0.079** — projected, see [`docs/benchmarks.md`](docs/benchmarks.md) |
 | Reranker (fake) delta | informational | see [`docs/benchmarks.md`](docs/benchmarks.md) § Reranker delta |
+| Reranker (cross-encoder, real) | informational | **MRR +0.1611**, p50 latency 274 ms — see [`docs/benchmarks.md`](docs/benchmarks.md) § Real cross-encoder reranker |
 | Faithfulness (Ragas) | >= 0.85 | *set `OPENAI_API_KEY` to enable* |
 | Answer relevancy (Ragas) | >= 0.80 | *set `OPENAI_API_KEY` to enable* |
 | Context precision (Ragas) | >= 0.75 | *set `OPENAI_API_KEY` to enable* |
 
-Retrieval eval runs on every PR (offline, free). Generation eval runs weekly + on-demand via `.github/workflows/eval.yml`; it skips cleanly when `OPENAI_API_KEY` is absent.
+Retrieval eval runs on every PR (offline, free). Generation eval runs
+weekly + on-demand via `.github/workflows/eval.yml`; it skips cleanly
+when `OPENAI_API_KEY` is absent.
 
 ---
 
@@ -414,10 +450,14 @@ mitigation -> prevention -> signals):
 3. [`schema-violation.md`](docs/runbooks/schema-violation.md) — client
    contract or LLM output violates schema; hard fail with cid
 
-Architecture overview: [`docs/architecture.md`](docs/architecture.md).
-Benchmarks and cost model: [`docs/benchmarks.md`](docs/benchmarks.md).
-Delivery semantics (why "exactly-once" = idempotency here):
-[`docs/exactly-once.md`](docs/exactly-once.md).
+Design deep-dives:
+
+- Architecture overview: [`docs/architecture.md`](docs/architecture.md)
+- Benchmarks and cost model: [`docs/benchmarks.md`](docs/benchmarks.md)
+- Delivery semantics (why "exactly-once" = idempotency here):
+  [`docs/exactly-once.md`](docs/exactly-once.md)
+- Kafka consumer group rebalance:
+  [`docs/kafka-rebalance.md`](docs/kafka-rebalance.md)
 
 ---
 
@@ -482,7 +522,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Streaming ingestion — `EventSource` protocol, `InMemoryQueueSource` (offline),
       `KafkaEventSource` (opt-in `[kafka]`), `StreamingIngestor` (at-least-once + dedup)
 
-### M7 — Post-MVP [in progress]
+### M7 — Post-MVP [done]
 
 - [x] Prefetch queue for higher throughput
 - [x] S3 event source adapter (`[s3]` extra)
@@ -490,12 +530,12 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Exactly-once — documented as "effectively-once via idempotency";
       see [`docs/exactly-once.md`](docs/exactly-once.md)
 
-### M8+ (backlog)
+### M8 — Backlog [done]
 
-- [ ] Durable dedup state (KV store or compacted topic)
-- [ ] Kafka consumer group rebalance (dynamic partitions)
-- [ ] Bounded prefetch across partitions
-- [ ] Real cross-encoder reranker benchmark (`[rerank]` extra)
+- [x] Bounded prefetch across partitions
+- [x] Durable dedup state (SQLite adapter; protocol allows Redis/Postgres)
+- [x] Real cross-encoder reranker benchmark (`[rerank]` extra) — see [`docs/benchmarks.md`](docs/benchmarks.md)
+- [x] Kafka consumer group rebalance — hooks + docs in [`docs/kafka-rebalance.md`](docs/kafka-rebalance.md)
 
 ---
 
