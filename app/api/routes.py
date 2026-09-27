@@ -13,6 +13,7 @@ from __future__ import annotations
 import time
 
 from fastapi import APIRouter, Request
+from fastapi.responses import PlainTextResponse
 
 from app.agents.schema import AgentOutput
 from app.api.deps import (
@@ -31,7 +32,7 @@ from app.api.schemas import (
     QueryResponse,
 )
 from app.core.logging import get_logger
-from app.core.metrics import get_metrics
+from app.core.metrics import get_metrics, render_prometheus
 from app.core.tracing import span
 
 router = APIRouter()
@@ -157,4 +158,19 @@ def healthz(request: Request, settings: SettingsDep) -> HealthResponse:
 
 @router.get("/metrics")
 def metrics() -> dict:
+    """JSON snapshot. Kept for debugging and local tooling."""
     return get_metrics().snapshot()
+
+
+@router.get("/metrics/prom", response_class=PlainTextResponse)
+def metrics_prom() -> PlainTextResponse:
+    """Prometheus text exposition format (OpenMetrics-compatible subset).
+
+    Counter names: `<name>_total`. Histograms: `_bucket{le=...}`,
+    `_sum`, `_count`. Names are sanitized (dots -> underscores).
+    """
+    body = render_prometheus(get_metrics().snapshot())
+    return PlainTextResponse(
+        content=body,
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
