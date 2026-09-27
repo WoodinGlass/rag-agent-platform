@@ -186,6 +186,8 @@ Adapters:
   and tests.
 - `KafkaEventSource` - opt-in via `[kafka]` extra; lazy import so
   the package stays light when unused.
+- `S3ObjectSource` - opt-in via `[s3]` extra; polls a bucket for new
+  objects. Works with any S3-compatible service (MinIO, R2, B2).
 
 Try it offline:
 

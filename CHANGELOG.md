@@ -60,6 +60,21 @@ Versioning: [SemVer](https://semver.org/).
 - `.env.example`, README § Observability updated
 - 4 new tests (exporter selection, enable path)
 
+**M7 — Post-MVP**
+- **M7.1 — Prefetch queue**
+  - `app/streaming/prefetch.py`: `Prefetcher` (bounded buffer + fill task)
+  - backpressure preserved; commit delegates to source
+  - `StreamingIngestor.run_with_prefetch(prefetch_n=N)`
+  - config: `streaming_prefetch_n` (0 disables, default)
+- **M7.2 — S3 event source adapter**
+  - `app/streaming/s3_source.py`: `S3ObjectSource` (lazy `[s3]` extra)
+  - polls `list_objects_v2`, filters by prefix, at-least-once
+  - blocking boto3 calls offloaded via `asyncio.to_thread`
+  - error isolation: list/get failures do not crash the loop
+  - config: `s3_bucket`, `s3_prefix`, `s3_endpoint_url`, `s3_region`,
+    `s3_poll_interval_s`, `s3_max_keys`
+  - `.env.example` extended
+
 **M6.4 — Streaming ingestion**
 - `app/streaming/events.py`: `Event` envelope (id, data, metadata)
 - `app/streaming/source.py`: `EventSource` protocol (poll / commit / close)
