@@ -4,6 +4,8 @@
 - Install correlation-id middleware.
 - Mount routes from app.api.routes.
 - Error handler keeps ErrorResponse contract on 500.
+- Provider selected from settings.llm_provider:
+  fake (default) | openai | groq | anthropic.
 """
 from __future__ import annotations
 
@@ -14,7 +16,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.agents.bootstrap import AgentStack, build_agent
-from app.agents.llm import FakeLLM
+from app.agents.llm import (
+    GROQ_BASE_URL,
+    GROQ_DEFAULT_MODEL,
+    AnthropicLLM,
+    FakeLLM,
+    OpenAILLM,
+)
 from app.api.middleware import CorrelationIdMiddleware, TenantMiddleware
 from app.api.routes import router
 from app.api.schemas import ErrorResponse
@@ -35,6 +43,40 @@ _NO_PROVIDER_REPLY = (
 )
 
 
+def _build_llm(settings: Settings):
+    """Select the LLM backend from settings.llm_provider."""
+    provider = settings.llm_provider
+
+    if provider == "fake":
+        return FakeLLM([_NO_PROVIDER_REPLY])
+
+    if provider == "openai":
+        return OpenAILLM(
+            model=settings.llm_model,
+            api_key=settings.openai_api_key or None,
+            base_url=settings.llm_base_url or None,
+            timeout_s=float(settings.llm_timeout_s),
+        )
+
+    if provider == "groq":
+        return OpenAILLM(
+            model=settings.llm_model or GROQ_DEFAULT_MODEL,
+            api_key=settings.groq_api_key or None,
+            base_url=settings.llm_base_url or GROQ_BASE_URL,
+            timeout_s=float(settings.llm_timeout_s),
+            # Groq free tier caps OTPM at 1000; keep requests small.
+            max_tokens=256,
+        )
+
+    if provider == "anthropic":
+        return AnthropicLLM(
+            model=settings.llm_model,
+            api_key=settings.anthropic_api_key or None,
+        )
+
+    raise ValueError(f"unknown llm_provider: {provider!r}")
+
+
 def _build_stack(settings: Settings) -> AgentStack:
     """Pick implementations from settings. Default = offline & deterministic."""
     if settings.embedder_provider == "fake":
@@ -51,9 +93,7 @@ def _build_stack(settings: Settings) -> AgentStack:
     else:
         store = get_store("memory")
 
-    # MVP: FakeLLM scripted to answer immediately. M3.5+ will wire real
-    # provider when llm_provider != "fake".
-    llm = FakeLLM([_NO_PROVIDER_REPLY])
+    llm = _build_llm(settings)
 
     return build_agent(
         llm=llm,
@@ -79,10 +119,10 @@ async def lifespan(app: FastAPI):
     app.state.agent = app.state.stack.agent
     app.state.pipeline = app.state.stack.pipeline
     yield
-    # shutdown hooks (none yet)
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
     app = FastAPI(
         title="rag-agent-platform",
         version=APP_VERSION,
@@ -90,6 +130,8 @@ def create_app() -> FastAPI:
         redoc_url=None,
         lifespan=lifespan,
     )
+    # Expose settings on app.state so TenantMiddleware can see them.
+    app.state.settings = settings
     # order: outermost runs first. CID first (so all logs have it),
     # then tenant (so auth rejection logs carry a cid).
     app.add_middleware(TenantMiddleware)

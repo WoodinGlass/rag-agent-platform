@@ -1,0 +1,65 @@
+name: Provider smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why run this smoke test?"
+        required: false
+        default: "manual check"
+  # Weekly drift check. Skips cleanly if no provider key is set.
+  schedule:
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  provider-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Detect provider key
+        id: check
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "${GROQ_API_KEY}" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+            echo "provider=groq" >> "$GITHUB_OUTPUT"
+          elif [ -n "${OPENAI_API_KEY}" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+            echo "provider=openai" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::no provider key; skipping provider smoke test"
+          fi
+
+      - name: Install (with [llm] extra)
+        if: steps.check.outputs.has_key == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,http,llm]"
+
+      - name: Run provider smoke test
+        if: steps.check.outputs.has_key == 'true'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          pytest tests/integration/test_provider_smoke.py \
+            -m provider -v --no-header
+
+      - name: Skipped note
+        if: steps.check.outputs.has_key != 'true'
+        run: |
+          echo "Provider smoke test skipped: add GROQ_API_KEY (free) or"
+          echo "OPENAI_API_KEY as a repository secret."
+          echo "Settings -> Secrets and variables -> Actions -> New secret."
+          echo "See README section 'Provider smoke test'."

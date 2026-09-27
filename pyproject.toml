@@ -52,6 +52,7 @@ include = ["app*", "evals*"]
 markers = [
     "integration: requires Docker / external services",
     "slow: long-running",
+    "provider: requires a real LLM provider API key",
 ]
 addopts = "-q"
 testpaths = ["tests"]

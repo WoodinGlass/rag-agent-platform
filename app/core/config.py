@@ -18,9 +18,16 @@ class Settings(BaseSettings):
     )
 
     # --- LLM ---
-    llm_provider: Literal["openai", "anthropic", "fake"] = "fake"
+    llm_provider: Literal["openai", "anthropic", "groq", "fake"] = "fake"
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+    # Groq (OpenAI-compatible, has a free tier)
+    groq_api_key: str = ""
+    # Optional override of the API base URL. When empty:
+    #   openai   -> official OpenAI
+    #   groq     -> https://api.groq.com/openai/v1
+    #   anthropic-> official Anthropic
+    llm_base_url: str = ""
     llm_model: str = "gpt-4o-mini"
     llm_timeout_s: int = 30
     llm_max_retries: int = 3

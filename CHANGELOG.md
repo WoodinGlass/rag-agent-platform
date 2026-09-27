@@ -60,6 +60,23 @@ Versioning: [SemVer](https://semver.org/).
 - `.env.example`, README § Observability updated
 - 4 new tests (exporter selection, enable path)
 
+**M9 — Post-MVP polish**
+- **M9.1 — Real LLM provider path (smoke-tested)**
+  - `app/agents/llm.py`: `OpenAILLM` gains `base_url` +
+    `max_tokens`; works with any OpenAI-compatible endpoint
+    (Groq, Together, OpenRouter, vLLM)
+  - `GROQ_DEFAULT_MODEL = qwen/qwen3.8-27b` (chosen after testing:
+    `gpt-oss-20b` -> native tool-calling conflict;
+    `allam-2-7b` -> too small for multi-turn agent loop;
+    `qwen3.8-27b` + `max_tokens=256` works within Groq free tier)
+  - `llm_provider` accepts `groq`; `main.py` routes it through
+    `OpenAILLM` with `GROQ_BASE_URL`
+  - `tests/integration/test_provider_smoke.py`: real-API smoke
+    test, self-skips without key; marker `provider`
+  - `.github/workflows/provider-smoke.yml`: manual + weekly,
+    accepts `GROQ_API_KEY` or `OPENAI_API_KEY`
+  - `.env.example`: documents Groq as the free real-provider path
+
 **M8 — Backlog (post-MVP)**
 - **M8.2 — Durable dedup state**
   - `app/streaming/dedup.py`: `DedupStore` protocol + `InMemoryDedupStore`
