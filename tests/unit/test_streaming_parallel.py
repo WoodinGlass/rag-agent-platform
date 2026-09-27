@@ -229,3 +229,123 @@ async def test_ingestor_for_returns_per_partition_instance():
 
     assert ing.ingestor_for("x") is not None
     assert ing.ingestor_for("missing") is None
+
+# ---------- M8.1: bounded prefetch across partitions ----------
+
+def test_prefetch_budget_divided_evenly():
+    """budget=B, n partitions -> each partition gets B // n (capped by N)."""
+    src = InMemoryPartitionedSource()
+    for p in ("p0", "p1", "p2", "p3"):
+        src.push(p, _event(p, 0))
+
+    async def handler(e: Event) -> None:
+        pass
+
+    ing = ParallelIngestor(
+        src, handler,
+        prefetch_n=16,
+        prefetch_budget_total=8,  # 8 / 4 = 2 per partition
+    )
+    per = ing._per_partition_prefetch_size(4)
+    assert per == 2
+
+
+def test_prefetch_budget_capped_by_prefetch_n():
+    """If prefetch_n < budget // n, per-partition is capped by N."""
+    src = InMemoryPartitionedSource()
+    async def handler(e: Event) -> None:
+        pass
+    ing = ParallelIngestor(
+        src, handler,
+        prefetch_n=2,
+        prefetch_budget_total=100,  # 100 / 4 = 25, capped to 2
+    )
+    per = ing._per_partition_prefetch_size(4)
+    assert per == 2
+
+
+def test_prefetch_budget_minimum_one():
+    """budget smaller than partitions -> each gets at least 1 (not 0)."""
+    src = InMemoryPartitionedSource()
+    async def handler(e: Event) -> None:
+        pass
+    ing = ParallelIngestor(
+        src, handler,
+        prefetch_n=8,
+        prefetch_budget_total=2,  # 2 / 10 = 0, bump to 1
+    )
+    per = ing._per_partition_prefetch_size(10)
+    assert per == 1
+
+
+def test_prefetch_disabled_by_default():
+    src = InMemoryPartitionedSource()
+    async def handler(e: Event) -> None:
+        pass
+    ing = ParallelIngestor(src, handler)
+    assert ing._per_partition_prefetch_size(4) == 0
+
+
+def test_prefetch_no_budget_uses_prefetch_n():
+    """budget=0 -> per-partition = prefetch_n (unbounded total)."""
+    src = InMemoryPartitionedSource()
+    async def handler(e: Event) -> None:
+        pass
+    ing = ParallelIngestor(src, handler, prefetch_n=5, prefetch_budget_total=0)
+    assert ing._per_partition_prefetch_size(4) == 5
+
+
+@pytest.mark.asyncio
+async def test_prefetch_budget_used_in_run():
+    """End-to-end: prefetch enabled, events processed, stats record size."""
+    src = InMemoryPartitionedSource()
+    for p in ("p0", "p1"):
+        for i in range(3):
+            src.push(p, _event(p, i))
+
+    seen: list[str] = []
+    lock = asyncio.Lock()
+
+    async def handler(e: Event) -> None:
+        async with lock:
+            seen.append(e.id)
+
+    ing = ParallelIngestor(
+        src, handler,
+        poll_timeout_s=0.01,
+        idle_sleep_s=0.001,
+        retry_backoff_base_s=0.0,
+        prefetch_n=8,
+        prefetch_budget_total=4,  # 4 / 2 = 2 per partition
+    )
+
+    async def stopper():
+        await asyncio.sleep(0.4)
+        ing.stop()
+
+    asyncio.create_task(stopper())
+    await ing.run()
+
+    assert sorted(seen) == sorted(
+        f"{p}-{i}" for p in ("p0", "p1") for i in range(3)
+    )
+    snap = ing.stats.as_dict()
+    assert snap["per_partition"]["p0"]["prefetch_n"] == 2
+    assert snap["per_partition"]["p1"]["prefetch_n"] == 2
+
+
+def test_prefetch_n_validated():
+    src = InMemoryPartitionedSource()
+    async def handler(e: Event) -> None:
+        pass
+    with pytest.raises(ValueError, match="prefetch_n"):
+        ParallelIngestor(src, handler, prefetch_n=-1)
+
+
+def test_prefetch_budget_validated():
+    src = InMemoryPartitionedSource()
+    async def handler(e: Event) -> None:
+        pass
+    with pytest.raises(ValueError, match="prefetch_budget_total"):
+        ParallelIngestor(src, handler, prefetch_budget_total=-1)
+

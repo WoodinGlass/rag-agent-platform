@@ -60,6 +60,16 @@ Versioning: [SemVer](https://semver.org/).
 - `.env.example`, README § Observability updated
 - 4 new tests (exporter selection, enable path)
 
+**M8 — Backlog (post-MVP)**
+- **M8.1 — Bounded prefetch across partitions**
+  - `ParallelIngestor(prefetch_n, prefetch_budget_total)`
+  - budget divided deterministically across partitions:
+    `min(prefetch_n, max(1, budget // n_partitions))`
+  - per-partition prefetch size exposed in stats
+  - config: `streaming_prefetch_budget_total` (0 = no total cap)
+  - 9 tests: budget division, cap by N, minimum 1, disabled default,
+    end-to-end with prefetch, input validation
+
 **M7 — Post-MVP**
 - **M7.1 — Prefetch queue**
   - `app/streaming/prefetch.py`: `Prefetcher` (bounded buffer + fill task)

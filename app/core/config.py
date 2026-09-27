@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     streaming_idle_sleep_s: float = 0.05
     # Prefetch buffer size. 0 disables prefetching.
     streaming_prefetch_n: int = 0
+    # Total prefetch budget across all partitions (0 = no total cap;
+    # per-partition still bound by streaming_prefetch_n).
+    streaming_prefetch_budget_total: int = 0
 
     # --- Logging ---
     log_level: str = "INFO"

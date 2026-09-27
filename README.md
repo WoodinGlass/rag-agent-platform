@@ -178,7 +178,8 @@ Guarantees:
 - **Retry with backoff.** Handler failures retry up to
   `STREAMING_MAX_RETRIES`; on give-up the event is not committed.
 - **One event in flight.** Predictable memory; prefetch is opt-in
-  (`STREAMING_PREFETCH_N`).
+  (`STREAMING_PREFETCH_N`). Under parallel ingest, a total budget
+  (`STREAMING_PREFETCH_BUDGET_TOTAL`) caps memory across partitions.
 - **Effectively-once, not exactly-once.** Delivery is at-least-once;
   correctness comes from idempotent ingestion (`sha256+version`) plus
   a bounded dedup window. Rationale and failure modes:
