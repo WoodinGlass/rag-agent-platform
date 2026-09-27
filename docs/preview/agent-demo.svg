@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="661" height="1004" viewBox="0 0 661 1004" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace">
+<rect width="661" height="1004" rx="10" fill="#0d1117"/>
+<text x="24" y="42" fill="#8b949e" font-size="13">python scripts/agent_demo.py</text>
+<line x1="0" y1="52" x2="661" y2="52" stroke="#30363d" stroke-width="1"/>
+<text x="24" y="76" fill="#e6edf3" font-size="14" xml:space="preserve">ingest cat.txt        doc_id=ba353941 chunks=1</text>
+<text x="24" y="96" fill="#e6edf3" font-size="14" xml:space="preserve">ingest dog.txt        doc_id=0f0ade6a chunks=1</text>
+<text x="24" y="116" fill="#e6edf3" font-size="14" xml:space="preserve">ingest quantum.txt    doc_id=0dcfc9bb chunks=1</text>
+<text x="24" y="136" fill="#e6edf3" font-size="14" xml:space="preserve"></text>
+<text x="24" y="156" fill="#e6edf3" font-size="14" xml:space="preserve">question: How many letters are in the word 'cat', multiplied by 7?</text>
+<text x="24" y="176" fill="#e6edf3" font-size="14" xml:space="preserve"></text>
+<text x="24" y="196" fill="#e6edf3" font-size="14" xml:space="preserve">--- agent output (JSON) ---</text>
+<text x="24" y="216" fill="#e6edf3" font-size="14" xml:space="preserve">{</text>
+<text x="24" y="236" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;question&quot;: &quot;How many letters are in the word 'cat', multiplied by 7?&quot;,</text>
+<text x="24" y="256" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;final_answer&quot;: &quot;The word 'cat' has 3 letters; 3 x 7 = 21.&quot;,</text>
+<text x="24" y="276" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;citations&quot;: [</text>
+<text x="24" y="296" fill="#e6edf3" font-size="14" xml:space="preserve">    {</text>
+<text x="24" y="316" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;doc_id&quot;: &quot;d&quot;,</text>
+<text x="24" y="336" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;chunk_id&quot;: &quot;d:0000&quot;,</text>
+<text x="24" y="356" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;quote&quot;: &quot;cat has 3 letters&quot;</text>
+<text x="24" y="376" fill="#e6edf3" font-size="14" xml:space="preserve">    }</text>
+<text x="24" y="396" fill="#e6edf3" font-size="14" xml:space="preserve">  ],</text>
+<text x="24" y="416" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;tool_calls&quot;: [</text>
+<text x="24" y="436" fill="#e6edf3" font-size="14" xml:space="preserve">    {</text>
+<text x="24" y="456" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;tool&quot;: &quot;search_docs&quot;,</text>
+<text x="24" y="476" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;args&quot;: {</text>
+<text x="24" y="496" fill="#e6edf3" font-size="14" xml:space="preserve">        &quot;query&quot;: &quot;cat letters&quot;,</text>
+<text x="24" y="516" fill="#e6edf3" font-size="14" xml:space="preserve">        &quot;k&quot;: 2</text>
+<text x="24" y="536" fill="#e6edf3" font-size="14" xml:space="preserve">      },</text>
+<text x="24" y="556" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;ok&quot;: true,</text>
+<text x="24" y="576" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;error&quot;: null,</text>
+<text x="24" y="596" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;latency_ms&quot;: 0</text>
+<text x="24" y="616" fill="#e6edf3" font-size="14" xml:space="preserve">    },</text>
+<text x="24" y="636" fill="#e6edf3" font-size="14" xml:space="preserve">    {</text>
+<text x="24" y="656" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;tool&quot;: &quot;calculator&quot;,</text>
+<text x="24" y="676" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;args&quot;: {</text>
+<text x="24" y="696" fill="#e6edf3" font-size="14" xml:space="preserve">        &quot;expression&quot;: &quot;3*7&quot;</text>
+<text x="24" y="716" fill="#e6edf3" font-size="14" xml:space="preserve">      },</text>
+<text x="24" y="736" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;ok&quot;: true,</text>
+<text x="24" y="756" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;error&quot;: null,</text>
+<text x="24" y="776" fill="#e6edf3" font-size="14" xml:space="preserve">      &quot;latency_ms&quot;: 0</text>
+<text x="24" y="796" fill="#e6edf3" font-size="14" xml:space="preserve">    }</text>
+<text x="24" y="816" fill="#e6edf3" font-size="14" xml:space="preserve">  ],</text>
+<text x="24" y="836" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;confidence&quot;: &quot;high&quot;,</text>
+<text x="24" y="856" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;refused&quot;: false,</text>
+<text x="24" y="876" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;reason&quot;: &quot;&quot;</text>
+<text x="24" y="896" fill="#e6edf3" font-size="14" xml:space="preserve">}</text>
+<text x="24" y="916" fill="#e6edf3" font-size="14" xml:space="preserve"></text>
+<text x="24" y="936" fill="#e6edf3" font-size="14" xml:space="preserve">--- tool trace ---</text>
+<text x="24" y="956" fill="#e6edf3" font-size="14" xml:space="preserve">  1. search_docs (ok, 0 ms)</text>
+<text x="24" y="976" fill="#e6edf3" font-size="14" xml:space="preserve">  2. calculator (ok, 0 ms)</text>
+</svg>

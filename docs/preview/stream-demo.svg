@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="526" height="404" viewBox="0 0 526 404" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace">
+<rect width="526" height="404" rx="10" fill="#0d1117"/>
+<text x="24" y="42" fill="#8b949e" font-size="13">python scripts/stream_demo.py --n 5 --duplicates 2</text>
+<line x1="0" y1="52" x2="526" y2="52" stroke="#30363d" stroke-width="1"/>
+<text x="24" y="76" fill="#e6edf3" font-size="14" xml:space="preserve">  handled evt-0000  doc=0b4115b5  chunks=1  skipped=False</text>
+<text x="24" y="96" fill="#e6edf3" font-size="14" xml:space="preserve">  handled evt-0001  doc=78b5c6a9  chunks=1  skipped=False</text>
+<text x="24" y="116" fill="#e6edf3" font-size="14" xml:space="preserve">  handled evt-0002  doc=3947bd28  chunks=1  skipped=False</text>
+<text x="24" y="136" fill="#e6edf3" font-size="14" xml:space="preserve">  handled evt-0003  doc=f4ced8e5  chunks=1  skipped=False</text>
+<text x="24" y="156" fill="#e6edf3" font-size="14" xml:space="preserve">  handled evt-0004  doc=fc557cbb  chunks=1  skipped=False</text>
+<text x="24" y="176" fill="#e6edf3" font-size="14" xml:space="preserve"></text>
+<text x="24" y="196" fill="#e6edf3" font-size="14" xml:space="preserve">stats:</text>
+<text x="24" y="216" fill="#e6edf3" font-size="14" xml:space="preserve">{</text>
+<text x="24" y="236" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;pulled&quot;: 7,</text>
+<text x="24" y="256" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;committed&quot;: 5,</text>
+<text x="24" y="276" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;deduped&quot;: 2,</text>
+<text x="24" y="296" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;failed&quot;: 0,</text>
+<text x="24" y="316" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;retries&quot;: 0,</text>
+<text x="24" y="336" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;handler_errors&quot;: 0,</text>
+<text x="24" y="356" fill="#e6edf3" font-size="14" xml:space="preserve">  &quot;uptime_s&quot;: 0.002</text>
+<text x="24" y="376" fill="#e6edf3" font-size="14" xml:space="preserve">}</text>
+</svg>

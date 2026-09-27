@@ -61,6 +61,28 @@ Versioning: [SemVer](https://semver.org/).
 - 4 new tests (exporter selection, enable path)
 
 **M9 — Post-MVP polish**
+- **M9.8 — SVG preview assets**
+  - `scripts/make_preview_svg.py`: pure-stdlib renderer (terminal text -> SVG)
+  - `tests/unit/test_make_preview_svg.py`: 10 shape tests
+  - `docs/preview/`: `agent-demo.svg`, `stream-demo.svg`, `benchmark-1k.svg`,
+    `provider-smoke.svg` (optional), plus `README.md` with regeneration recipes
+  - README: `## Preview` section with hero + grid
+- **M9.7 — Prometheus exposition format**
+  - `app/core/metrics.py`: `render_prometheus(snapshot)` renders the
+    in-process registry as Prometheus text (counters -> `<name>_total`,
+    histograms cumulative with `_bucket{le=...}` + `_sum` + `_count`;
+    names sanitized to `[a-zA-Z_:][a-zA-Z0-9_:]*`)
+  - `app/api/routes.py`: `GET /metrics/prom` returns
+    `text/plain; version=0.0.4; charset=utf-8`; `/metrics` JSON kept
+  - `Metrics.reset()` for test isolation of the global singleton
+  - `tests/unit/test_metrics_prometheus.py`: 12 tests
+  - README: API table lists `/metrics/prom`
+- **M9.5 — Coverage `app/core/logging.py` 45% -> 100%**
+  - `tests/unit/test_logging.py`: 23 tests covering correlation id,
+    `JsonFormatter` (extras, reserved/private filter, exception, `%`-args,
+    non-ascii, cid-at-format-time), `PlainFormatter`, `configure_logging`
+    (both formatters, level casing, handler replacement, emit), `get_logger`
+  - pyproject: `fail_under` 70 -> 89 (total coverage measured at 92.4%)
 - **M9.6 — Scale benchmark at 1k documents**
   - `benchmarks/synthetic_corpus.py`: deterministic generator
     (seed=42, `template=v1`). Docs carry a unique 3-token signature

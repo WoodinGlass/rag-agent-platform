@@ -10,7 +10,7 @@
 
 ---
 
-## Problem (one sentence)
+## Preview\n\n<p align="center">\n  <img src="docs/preview/agent-demo.svg" alt="agent demo: multi-hop tool loop" width="760" />\n</p>\n\n<p align="center">\n  <em>Multi-hop agent loop: <code>search_docs</code> → <code>calculator</code> → finish, returning a Pydantic-validated <code>AgentOutput</code>.</em>\n</p>\n\n<table>\n<tr>\n  <td align="center"><img src="docs/preview/stream-demo.svg" alt="streaming demo" width="380" /></td>\n  <td align="center"><img src="docs/preview/benchmark-1k.svg" alt="scale benchmark" width="380" /></td>\n</tr>\n<tr>\n  <td align="center"><em>Streaming ingest with dedup</em></td>\n  <td align="center"><em>1k-doc scale benchmark</em></td>\n</tr>\n</table>\n\n---\n## Problem (one sentence)
 
 Developers need a **reusable, testable, and observable RAG + agent backend** that ingests arbitrary documents, retrieves grounded context, executes tools, and returns **structured JSON** — instead of one-off notebooks glued to a single LLM provider.
 
@@ -635,7 +635,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] **M9.5** Coverage `core/logging.py` 45% → 100% (threshold raised to 89)
 - [x] **M9.6** Benchmark at 1k documents (synthetic) — see [`docs/benchmarks.md`](docs/benchmarks.md) § Scale
 - [ ] **M9.7** Prometheus exposition format at `/metrics/prom`
-- [ ] **M9.8** Screenshot / GIF in README
+- [x] **M9.8** Preview assets (SVG) in README
 
 ## M10+ — Future (no schedule)
 
