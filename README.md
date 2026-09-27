@@ -36,6 +36,7 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 - **Eval:** offline retrieval metrics (hit-rate, MRR, precision, recall) on every PR; Ragas (faithfulness, answer relevancy, context precision) via LLM judge on weekly/manual runs
 - **Observability:** structured JSON logs + correlation id; `/metrics` endpoint; OpenTelemetry traces (opt-in, console or OTLP exporter)
 - **Auth:** opt-in API-key multi-tenant (X-API-Key); tenant propagated via contextvar through the agent loop
+- **Request limits:** opt-in token-bucket rate limit (per key/IP) + Content-Length body size cap; stdlib only, in-process
 - **Streaming ingestion:** `EventSource` protocol; `InMemoryQueueSource`, `KafkaEventSource`, `S3ObjectSource` adapters; `ParallelIngestor` with consumer-group rebalance hooks
 - **Packaging:** `pyproject.toml` (single source of truth)
 - **Infra:** Docker + docker-compose, GitHub Actions CI (lint + type + coverage + docker smoke + eval)
@@ -69,6 +70,7 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 | **Agent loop** | Two backends, one protocol; state machine default, LangGraph opt-in | Choice without rewrite; parity-tested |
 | **Pure vs IO** | Tools pure; IO in `tools/adapters/` | Unit tests never touch network/disk |
 | **Multi-tenant** | Opt-in; tenant-scoped doc ids + contextvar propagation | Single-tenant deploy stays simple |
+| **Request limits** | Opt-in; in-process token bucket + Content-Length cap | Zero config for demo; single-line switch for production |
 | **Tracing** | Opt-in; no-op default; lazy SDK | Zero cost when off |
 | **Delivery semantics** | At-least-once + idempotent handler = effectively-once | Kafka EOS does not apply to a Kafka→vector-store topology |
 | **Failure modes** | LLM timeout → retry w/ jitter. Store down → circuit breaker. API → 503 + CID in logs | See `docs/runbooks/` |
@@ -111,7 +113,7 @@ rag-agent-platform/
 │   │   ├── calculator.py    # ast-safe arithmetic
 │   │   ├── search_docs.py   # wraps RagPipeline
 │   │   └── web_fetch.py     # HTTP GET with timeout + retry
-│   ├── api/                 # routes, schemas, deps, middleware
+│   ├── api/                 # routes, schemas, deps, middleware, limits
 │   ├── core/                # config, logging, ids, metrics, auth, tenant, tracing
 │   └── main.py              # application entrypoint (lifespan)
 ├── benchmarks/              # offline latency + cost model + reranker delta
@@ -126,7 +128,7 @@ rag-agent-platform/
 ├── docker/                  # Dockerfile (multi-stage) + compose + otel-collector
 ├── docs/                    # architecture, benchmarks, exactly-once, kafka-rebalance, runbooks
 ├── scripts/                 # agent_demo.py, ingest_demo.py, stream_demo.py
-├── .github/workflows/       # ci.yml, eval.yml
+├── .github/workflows/       # ci.yml, eval.yml, provider-smoke.yml
 ├── .env.example
 ├── CHANGELOG.md
 ├── LICENSE
@@ -265,6 +267,21 @@ curl -s -X POST localhost:8000/ingest \
   -H 'Content-Type: application/json' \
   -d '{"content_base64":"aGVsbG8="}'
 ```
+
+### Request limits (opt-in)
+
+Off by default. Enable when the API is exposed to untrusted clients.
+
+- **Rate limit** — `RATE_LIMIT_ENABLED=true` turns on a token-bucket
+  limiter keyed by `X-API-Key` (when auth is on) or client IP.
+  Config: `RATE_LIMIT_RPS` (sustained refill) and `RATE_LIMIT_BURST`
+  (bucket size). Rejections return `429` with a `Retry-After` header.
+  In-process: one bucket set per worker; a shared store is a follow-up.
+- **Body size** — `MAX_BODY_SIZE_BYTES` rejects requests whose
+  `Content-Length` exceeds the limit with `413`. `0` (default)
+  disables the check.
+- Monitoring paths (`/healthz`, `/metrics`, `/docs`) are always exempt
+  from rate limiting.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -599,7 +616,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
   - [x] **M9.3c** Offline tests (mock client, 19 tests)
   - [x] **M9.3d** Integration test skip-friendly (real Qdrant service)
   - [x] **M9.3e** Docs + CHANGELOG + commit final
-- [ ] **M9.4** Rate limiting + max body size
+- [x] **M9.4** Rate limiting + max body size — opt-in token bucket + Content-Length cap
 - [ ] **M9.5** Coverage `core/logging.py` 45% → 90%
 - [ ] **M9.6** Benchmark at 1k documents (synthetic)
 - [ ] **M9.7** Prometheus exposition format at `/metrics/prom`
