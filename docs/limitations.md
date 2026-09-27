@@ -37,8 +37,12 @@ to where it would be fixed.
 - **No circuit breaker.** `docs/runbooks/llm-timeout.md` describes the
   intended behaviour; today the retry-with-jitter exists, the
   circuit-breaker part is a documented follow-up.
-- **No rate limiting.** `/ingest` and `/query` accept requests without
-  a request-size cap or per-tenant throttle.
+- **Rate limiting is in-process.** `RateLimitMiddleware` and
+  `BodySizeLimitMiddleware` exist and are opt-in, but the limiter keeps
+  its buckets in memory: a multi-worker deploy needs a shared store
+  (Redis) behind the same `allow(key)` contract. Chunked uploads
+  (no `Content-Length`) bypass the size check today — a streaming cap
+  is a follow-up.
 - **No concurrency test.** Benchmarks measure single-threaded latency.
   p95 under load is a different number and is not measured here.
 - **Docker smoke test is shallow.** The CI `docker` job validates that

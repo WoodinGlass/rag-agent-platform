@@ -36,6 +36,7 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 - **Eval:** offline retrieval metrics (hit-rate, MRR, precision, recall) on every PR; Ragas (faithfulness, answer relevancy, context precision) via LLM judge on weekly/manual runs
 - **Observability:** structured JSON logs + correlation id; `/metrics` endpoint; OpenTelemetry traces (opt-in, console or OTLP exporter)
 - **Auth:** opt-in API-key multi-tenant (X-API-Key); tenant propagated via contextvar through the agent loop
+- **Request limits:** opt-in token-bucket rate limit (per key/IP) + Content-Length body size cap; stdlib only, in-process
 - **Streaming ingestion:** `EventSource` protocol; `InMemoryQueueSource`, `KafkaEventSource`, `S3ObjectSource` adapters; `ParallelIngestor` with consumer-group rebalance hooks
 - **Packaging:** `pyproject.toml` (single source of truth)
 - **Infra:** Docker + docker-compose, GitHub Actions CI (lint + type + coverage + docker smoke + eval)
@@ -273,6 +274,21 @@ curl -s -X POST localhost:8000/ingest \
 | `GET`  | `/healthz` | Liveness + shallow check of agent/pipeline wiring |
 | `GET`  | `/metrics` | In-process counters + latency histograms |
 | `GET`  | `/docs` | OpenAPI UI |
+
+### Request limits (opt-in)
+
+Off by default. Enable when the API is exposed to untrusted clients.
+
+- **Rate limit** - `RATE_LIMIT_ENABLED=true` turns on a token-bucket
+  limiter keyed by `X-API-Key` (when auth is on) or client IP.
+  Config: `RATE_LIMIT_RPS` (sustained refill) and `RATE_LIMIT_BURST`
+  (bucket size). Rejections return `429` with a `Retry-After` header.
+  In-process: one bucket set per worker; a shared store is a follow-up.
+- **Body size** - `MAX_BODY_SIZE_BYTES` rejects requests whose
+  `Content-Length` exceeds the limit with `413`. `0` (default)
+  disables the check.
+- Monitoring paths (`/healthz`, `/metrics`, `/docs`) are
+  always exempt from rate limiting.
 
 ### Example
 
@@ -599,7 +615,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
   - [x] **M9.3c** Offline tests (mock client, 19 tests)
   - [x] **M9.3d** Integration test skip-friendly (real Qdrant service)
   - [x] **M9.3e** Docs + CHANGELOG + commit final
-- [ ] **M9.4** Rate limiting + max body size
+- [x] **M9.4** Rate limiting + max body size — opt-in token bucket + Content-Length cap
 - [ ] **M9.5** Coverage `core/logging.py` 45% → 90%
 - [ ] **M9.6** Benchmark at 1k documents (synthetic)
 - [ ] **M9.7** Prometheus exposition format at `/metrics/prom`

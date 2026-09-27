@@ -61,6 +61,23 @@ Versioning: [SemVer](https://semver.org/).
 - 4 new tests (exporter selection, enable path)
 
 **M9 — Post-MVP polish**
+- **M9.4 — Rate limiting + max body size**
+  - `app/api/limits.py`: `TokenBucketLimiter` (thread-safe,
+    injectable clock, lazy prune) + `check_content_length`
+  - `app/api/middleware.py`: `RateLimitMiddleware` (429 +
+    `Retry-After`, key = X-API-Key or client IP, exempt paths for
+    /healthz /metrics /docs) + `BodySizeLimitMiddleware` (413)
+  - `app/main.py`: order CID -> RateLimit -> Tenant -> BodySize -> route;
+    limiter built once per app when RATE_LIMIT_ENABLED=true
+  - config: `rate_limit_enabled`, `rate_limit_rps`,
+    `rate_limit_burst`, `max_body_size_bytes` (all off by default)
+  - `tests/unit/test_api_limits.py`: 28 tests (bucket refill,
+    key isolation, prune, Content-Length verdicts, 429/413 payloads,
+    exempt path, disabled-by-default)
+  - `.env.example`: `RATE_LIMIT_*` + `MAX_BODY_SIZE_BYTES`
+  - README § API: "Request limits (opt-in)" subsection
+  - `docs/limitations.md`: updated from "No rate limiting" to
+    "in-process limiter; shared store is a follow-up"
 - **M9.3 — Qdrant adapter**
   - **M9.3a** `app/rag/qdrant_store.py`: VectorStore backed by Qdrant
     - deterministic UUIDv5 from `chunk_id` (Qdrant requires UUID / int
