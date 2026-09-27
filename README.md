@@ -188,6 +188,10 @@ Adapters:
   the package stays light when unused.
 - `S3ObjectSource` - opt-in via `[s3]` extra; polls a bucket for new
   objects. Works with any S3-compatible service (MinIO, R2, B2).
+- `InMemoryPartitionedSource` + `ParallelIngestor` - fan out to one
+  `StreamingIngestor` per partition and run them concurrently via
+  `asyncio.gather`. Per-partition commits stay independent; one
+  partition crashing does not affect the others.
 
 Try it offline:
 

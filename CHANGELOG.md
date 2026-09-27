@@ -66,6 +66,13 @@ Versioning: [SemVer](https://semver.org/).
   - backpressure preserved; commit delegates to source
   - `StreamingIngestor.run_with_prefetch(prefetch_n=N)`
   - config: `streaming_prefetch_n` (0 disables, default)
+- **M7.3 — Multi-partition parallel ingestors**
+  - `app/streaming/partitioned.py`: `PartitionedSource` protocol +
+    `InMemoryPartitionedSource` (offline)
+  - `app/streaming/parallel_ingestor.py`: `ParallelIngestor` (one
+    `StreamingIngestor` per partition, `asyncio.gather`)
+  - per-partition stats, aggregated totals, error isolation
+  - Kafka rebalance not implemented (partitions enumerated at start)
 - **M7.2 — S3 event source adapter**
   - `app/streaming/s3_source.py`: `S3ObjectSource` (lazy `[s3]` extra)
   - polls `list_objects_v2`, filters by prefix, at-least-once
