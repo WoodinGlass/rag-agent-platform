@@ -109,6 +109,15 @@ class Settings(BaseSettings):
     # TTL for durable dedup entries (seconds). Only used by sqlite.
     streaming_dedup_ttl_s: float = 86400.0
 
+    # --- Request limits (M9.4) ---
+    # Off by default: portfolio runs with zero config.
+    rate_limit_enabled: bool = False
+    # Token bucket per key (tenant id or client IP).
+    rate_limit_rps: float = 10.0          # sustained refill rate
+    rate_limit_burst: int = 20            # bucket capacity
+    # Max request body size in bytes (0 = no limit). Applied to all routes.
+    max_body_size_bytes: int = 0
+
     # --- Logging ---
     log_level: str = "INFO"
     log_json: bool = True
