@@ -30,7 +30,7 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 - **Runtime:** Python 3.11+, FastAPI, Uvicorn
 - **Agent loop:** two backends behind one `AgentBackend` protocol — a deterministic state machine (default) and a LangGraph `StateGraph` (opt-in via `AGENT_BACKEND=langgraph`)
 - **LLM providers:** OpenAI, Anthropic (pluggable via `LLM` protocol; `FakeLLM` for tests)
-- **Vector store:** Chroma (local) / Qdrant (service) / MemoryStore (tests)
+- **Vector store:** three backends behind one `VectorStore` ABC, selected by `VECTOR_BACKEND`: `MemoryStore` (tests, in-process), `ChromaStore` (local files, `[vector]`), `QdrantStore` (service, `[qdrant]`)
 - **Reranker:** Identity (default), Fake (heuristic for tests), Cross-encoder (opt-in via `[rerank]`)
 - **Schemas:** Pydantic v2 (`extra="forbid"` for contract enforcement)
 - **Eval:** offline retrieval metrics (hit-rate, MRR, precision, recall) on every PR; Ragas (faithfulness, answer relevancy, context precision) via LLM judge on weekly/manual runs
@@ -63,7 +63,7 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 |---|---|---|
 | **Deterministic vs non-deterministic** | Ingest + retrieval deterministic; generation non-deterministic | Enables re-ingest without duplicates |
 | **Payload vs pipeline** | Payload = documents + embeddings; Pipeline = chunk → embed → retrieve → generate | Clear separation for testing |
-| **Storage tier** | Small structured: SQLite (dev) / Postgres (prod). Vectors: Chroma → Qdrant | No refactor when scaling |
+| **Storage tier** | Small structured: SQLite (dev) / Postgres (prod). Vectors: `MemoryStore` → `ChromaStore` → `QdrantStore`, all behind one `VectorStore` ABC | No refactor when scaling |
 | **Ingestion mode** | Batch first; streaming behind a protocol | Same contract, two adapters |
 | **Idempotency key** | `sha256(file_bytes) + chunker_version` (+ tenant namespace) | Re-ingest is a no-op |
 | **Agent loop** | Two backends, one protocol; state machine default, LangGraph opt-in | Choice without rewrite; parity-tested |
@@ -90,6 +90,9 @@ rag-agent-platform/
 │   │   ├── registry.py      # ToolRegistry
 │   │   └── schema.py        # AgentOutput / Citation / ToolCall
 │   ├── rag/                 # chunker, embedder, store, pipeline, reranker
+│   │   ├── store.py         # VectorStore ABC + MemoryStore + lazy ChromaStore
+│   │   ├── qdrant_store.py  # QdrantStore (opt-in [qdrant] extra)
+│   │   └── reranker.py      # Identity / Fake / CrossEncoder
 │   ├── streaming/           # EventSource protocol + adapters + ingestor
 │   │   ├── source.py        # EventSource protocol
 │   │   ├── events.py        # Event envelope
@@ -335,8 +338,24 @@ curl -s -X POST localhost:8000/query \
 
 The compose stack also boots **Qdrant** on ports `6333` (HTTP/dashboard)
 and `6334` (gRPC), and an **OTel collector** under the `otel` profile.
-Set `VECTOR_BACKEND=qdrant` once the Qdrant adapter lands; today the API
-defaults to `memory` so the stack works with zero config.
+
+To use Qdrant as the vector store:
+
+```bash
+# install the optional client
+pip install -e ".[qdrant]"
+
+# point the API at the Qdrant service
+export VECTOR_BACKEND=qdrant
+export QDRANT_URL=http://localhost:6333
+export QDRANT_COLLECTION=rag_docs
+export QDRANT_DIM=1536   # must match your embedder dim
+
+uvicorn app.main:app --reload
+```
+
+The API defaults to `memory` so the stack works with zero config; flip
+the env vars above to use the running Qdrant service.
 
 Config surface: see `.env.example`. All knobs come from env — nothing is
 hardcoded. The image runs as a non-root user and ships a `HEALTHCHECK`.
@@ -563,23 +582,23 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Real cross-encoder reranker benchmark (`[rerank]` extra) — see [`docs/benchmarks.md`](docs/benchmarks.md)
 - [x] Kafka consumer group rebalance — hooks + docs in [`docs/kafka-rebalance.md`](docs/kafka-rebalance.md)
 
-## M9 — Post-MVP polish
+### M9 — Post-MVP polish
 
-- [x] M9.1 Real LLM provider path (OpenAI-compatible + Anthropic)
+- [x] **M9.1** Real LLM provider path (OpenAI-compatible + Anthropic)
   - `OpenAILLM` (base_url, max_tokens), `AnthropicLLM`, `get_llm()`
   - `GROQ_DEFAULT_MODEL = qwen/qwen3.8-27b`
   - Provider smoke test (marker `provider`, self-skips without key)
   - `.github/workflows/provider-smoke.yml` (manual + weekly)
-- [x] M9.2 Documentation polish
+- [x] **M9.2** Documentation polish
   - `docs/provider-smoke.md` (evidence + model-selection reasoning)
   - `docs/limitations.md` (honest list of what is not shipped)
   - README: provider-smoke badge + links
-- [x] M9.3 Qdrant adapter
-- [x] M9.3a `app/rag/qdrant_store.py` + `[qdrant]` extra
-- [x] M9.3b Config (`qdrant_*`) + `get_store()` + `main.py` wiring
-- [x] **M9.3c** Offline tests (mock client, ~22 tests)
-- [ ] **M9.3d** Integration test skip-friendly (real Qdrant service)
-- [ ] **M9.3e** Docs + CHANGELOG + commit final
+- [x] **M9.3** Qdrant adapter
+  - [x] **M9.3a** `app/rag/qdrant_store.py` + `[qdrant]` extra
+  - [x] **M9.3b** Config (`qdrant_*`) + `get_store()` + `main.py` wiring
+  - [x] **M9.3c** Offline tests (mock client, 19 tests)
+  - [x] **M9.3d** Integration test skip-friendly (real Qdrant service)
+  - [x] **M9.3e** Docs + CHANGELOG + commit final
 - [ ] **M9.4** Rate limiting + max body size
 - [ ] **M9.5** Coverage `core/logging.py` 45% → 90%
 - [ ] **M9.6** Benchmark at 1k documents (synthetic)
