@@ -20,6 +20,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from app.api.limits import (
+    TokenBucketLimiter,
+    check_content_length,
+)
 from app.core.auth import AuthError, resolve_tenant
 from app.core.config import get_settings
 from app.core.logging import (
@@ -152,3 +156,84 @@ class TenantMiddleware(BaseHTTPMiddleware):
             )
         set_tenant_id(tenant)
         return await call_next(request)
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Token-bucket rate limit keyed by tenant (X-API-Key) or client IP.
+
+    Reads settings from `request.app.state.settings` (falling back to the
+    module singleton) so test apps can override without touching globals.
+    The limiter itself lives on `app.state.rate_limiter`, created in
+    `create_app` when `RATE_LIMIT_ENABLED=true`. Disabled -> pass-through.
+
+    Exempt paths (`/healthz`, `/metrics`, `/docs`) never rate limit so
+    probes and dashboards are unaffected.
+
+    On rejection: 429 with `Retry-After` (integer seconds) and the
+    standard error body. Preserves the correlation id.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        settings = getattr(request.app.state, "settings", None) or get_settings()
+        if not getattr(settings, "rate_limit_enabled", False):
+            return await call_next(request)
+
+        if request.url.path in _AUTH_EXEMPT_PATHS:
+            return await call_next(request)
+
+        limiter: TokenBucketLimiter | None = getattr(
+            request.app.state, "rate_limiter", None
+        )
+        if limiter is None:
+            return await call_next(request)
+
+        api_key = request.headers.get("X-API-Key")
+        client_ip = request.client.host if request.client else "unknown"
+        key = api_key or client_ip
+
+        allowed, retry_after = limiter.allow(key)
+        if allowed:
+            return await call_next(request)
+
+        # Round up so the client does not retry early.
+        retry_after_s = max(1, int(retry_after + 0.5))
+        return JSONResponse(
+            status_code=429,
+            headers={"Retry-After": str(retry_after_s)},
+            content={
+                "error": "rate_limited",
+                "detail": f"retry after {retry_after_s}s",
+                "retry_after_s": retry_after_s,
+                "correlation_id": get_correlation_id(),
+            },
+        )
+
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    """Reject oversized requests from the Content-Length header.
+
+    A fast header-only check. Chunked uploads (no Content-Length) are
+    allowed through — a streaming cap is a follow-up (documented in
+    `docs/limitations.md`). Disabled when `MAX_BODY_SIZE_BYTES=0`.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        settings = getattr(request.app.state, "settings", None) or get_settings()
+        max_bytes = int(getattr(settings, "max_body_size_bytes", 0))
+        if max_bytes <= 0:
+            return await call_next(request)
+
+        verdict = check_content_length(
+            request.headers.get("content-length"), max_bytes
+        )
+        if verdict.allowed:
+            return await call_next(request)
+
+        return JSONResponse(
+            status_code=413,
+            content={
+                "error": "payload_too_large",
+                "detail": verdict.reason,
+                "correlation_id": get_correlation_id(),
+                **verdict.field,
+            },
+        )

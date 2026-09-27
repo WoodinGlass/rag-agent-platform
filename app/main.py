@@ -23,7 +23,12 @@ from app.agents.llm import (
     FakeLLM,
     OpenAILLM,
 )
-from app.api.middleware import CorrelationIdMiddleware, TenantMiddleware
+from app.api.middleware import (
+    BodySizeLimitMiddleware,
+    CorrelationIdMiddleware,
+    RateLimitMiddleware,
+    TenantMiddleware,
+)
 from app.api.routes import router
 from app.api.schemas import ErrorResponse
 from app.core.config import Settings, get_settings
@@ -138,11 +143,31 @@ def create_app() -> FastAPI:
         redoc_url=None,
         lifespan=lifespan,
     )
-    # Expose settings on app.state so TenantMiddleware can see them.
+    # Expose settings on app.state so middlewares can see them without
+    # reading the module-level singleton (test overrides stay local).
     app.state.settings = settings
-    # order: outermost runs first. CID first (so all logs have it),
-    # then tenant (so auth rejection logs carry a cid).
+
+    # Rate limiter is created once per app (single in-process state per
+    # worker). Disabled -> None, and the middleware passes through.
+    if settings.rate_limit_enabled:
+        from app.api.limits import TokenBucketLimiter
+
+        app.state.rate_limiter = TokenBucketLimiter(
+            rate=settings.rate_limit_rps,
+            burst=settings.rate_limit_burst,
+        )
+    else:
+        app.state.rate_limiter = None
+
+    # Order matters: last added = outermost = runs first on request.
+    #   CID -> RateLimit -> Tenant -> BodySize -> route
+    # CID is outermost so all downstream logs carry the correlation id.
+    # RateLimit runs before Tenant (it keys off the X-API-Key header,
+    # not the resolved tenant contextvar).
+    # BodySize is innermost: a cheap header check right before the route.
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(TenantMiddleware)
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     app.include_router(router)
 
