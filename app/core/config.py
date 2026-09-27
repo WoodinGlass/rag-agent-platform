@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     vector_backend: Literal["memory", "chroma", "qdrant"] = "memory"
     chroma_path: str = "./data/chroma"
     chroma_collection: str = "rag_docs"
+    # Qdrant (used when VECTOR_BACKEND=qdrant; requires [qdrant] extra)
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_collection: str = "rag_docs"
+    # Must match the embedder dim (e.g. 1536 for text-embedding-3-small,
+    # 128 for FakeEmbedder default).
+    qdrant_dim: int = 1536
+    qdrant_api_key: str = ""
 
     # --- Embedder ---
     embedder_provider: Literal["fake", "openai"] = "fake"

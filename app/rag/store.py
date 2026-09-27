@@ -220,4 +220,10 @@ def get_store(backend: str = "memory", **kwargs: Any) -> VectorStore:
         return MemoryStore()
     if backend == "chroma":
         return ChromaStore(**kwargs)
+    if backend == "qdrant":
+        # Import here (lazy): the module exists but qdrant-client may not
+        # be installed. Missing package -> clear ImportError from the class.
+        from app.rag.qdrant_store import QdrantStore
+
+        return QdrantStore(**kwargs)
     raise ValueError(f"unknown vector backend: {backend}")

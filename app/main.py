@@ -90,6 +90,14 @@ def _build_stack(settings: Settings) -> AgentStack:
             path=settings.chroma_path,
             collection=settings.chroma_collection,
         )
+    elif settings.vector_backend == "qdrant":
+        store = get_store(
+            "qdrant",
+            url=settings.qdrant_url,
+            collection=settings.qdrant_collection,
+            dim=settings.qdrant_dim,
+            api_key=settings.qdrant_api_key or None,
+        )
     else:
         store = get_store("memory")
 
