@@ -8,6 +8,8 @@
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+**First time here?** Read [`docs/portfolio-notes.md`](docs/portfolio-notes.md) — a one-page guide to what is here, what to look at first, and what is deliberately not.
+
 ---
 
 ## Preview
@@ -57,7 +59,7 @@ Developers need a **reusable, testable, and observable RAG + agent backend** tha
 - **Reranker:** Identity (default), Fake (heuristic for tests), Cross-encoder (opt-in via `[rerank]`)
 - **Schemas:** Pydantic v2 (`extra="forbid"` for contract enforcement)
 - **Eval:** offline retrieval metrics (hit-rate, MRR, precision, recall) on every PR; Ragas (faithfulness, answer relevancy, context precision) via LLM judge on weekly/manual runs
-- **Observability:** structured JSON logs + correlation id; `/metrics` endpoint; OpenTelemetry traces (opt-in, console or OTLP exporter)
+- **Observability:** structured JSON logs + correlation id; `/metrics` (JSON) + `/metrics/prom` (Prometheus text); OpenTelemetry traces (opt-in, console or OTLP exporter)
 - **Auth:** opt-in API-key multi-tenant (X-API-Key); tenant propagated via contextvar through the agent loop
 - **Request limits:** opt-in token-bucket rate limit (per key/IP) + Content-Length body size cap; stdlib only, in-process
 - **Streaming ingestion:** `EventSource` protocol; `InMemoryQueueSource`, `KafkaEventSource`, `S3ObjectSource` adapters; `ParallelIngestor` with consumer-group rebalance hooks
@@ -143,14 +145,19 @@ rag-agent-platform/
 │   ├── run.py               # ingest/retrieve latency + cost projection
 │   ├── reranker_delta.py    # identity vs FakeReranker
 │   ├── reranker_real.py     # identity vs CrossEncoderReranker
-│   └── results/             # latest.{json,md}, reranker_*.{json,md}
+│   ├── synthetic_corpus.py  # deterministic generator for scale benchmarks
+│   ├── scale_benchmark.py   # ingest + retrieve at N docs
+│   └── results/             # latest.{json,md}, reranker_*, scale_*
 ├── evals/                   # retrieval + Ragas CLI, corpora, reports
 ├── tests/
 │   ├── unit/                # fast, offline (default)
 │   └── integration/         # end-to-end (marker: integration)
 ├── docker/                  # Dockerfile (multi-stage) + compose + otel-collector
-├── docs/                    # architecture, benchmarks, exactly-once, kafka-rebalance, runbooks
-├── scripts/                 # agent_demo.py, ingest_demo.py, stream_demo.py
+├── docs/                    # architecture, benchmarks, exactly-once, kafka-rebalance,
+│                            #   provider-smoke, limitations, portfolio-notes, preview/,
+│                            #   runbooks/
+├── scripts/                 # agent_demo.py, ingest_demo.py, stream_demo.py,
+│                            #   make_preview_svg.py
 ├── .github/workflows/       # ci.yml, eval.yml, provider-smoke.yml
 ├── .env.example
 ├── CHANGELOG.md
@@ -306,28 +313,16 @@ Off by default. Enable when the API is exposed to untrusted clients.
 - Monitoring paths (`/healthz`, `/metrics`, `/docs`) are always exempt
   from rate limiting.
 
+### Endpoints
+
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/ingest` | Base64 bytes -> chunk -> embed -> store (idempotent on `sha256+version`) |
 | `POST` | `/query` | Run agent loop -> `AgentOutput` (structured JSON) |
 | `GET`  | `/healthz` | Liveness + shallow check of agent/pipeline wiring |
-| `GET`  | `/metrics` | In-process counters + latency histograms |
+| `GET`  | `/metrics` | In-process counters + latency histograms (JSON) |
+| `GET`  | `/metrics/prom` | Same metrics in Prometheus exposition format (`text/plain; version=0.0.4`) |
 | `GET`  | `/docs` | OpenAPI UI |
-
-### Request limits (opt-in)
-
-Off by default. Enable when the API is exposed to untrusted clients.
-
-- **Rate limit** - `RATE_LIMIT_ENABLED=true` turns on a token-bucket
-  limiter keyed by `X-API-Key` (when auth is on) or client IP.
-  Config: `RATE_LIMIT_RPS` (sustained refill) and `RATE_LIMIT_BURST`
-  (bucket size). Rejections return `429` with a `Retry-After` header.
-  In-process: one bucket set per worker; a shared store is a follow-up.
-- **Body size** - `MAX_BODY_SIZE_BYTES` rejects requests whose
-  `Content-Length` exceeds the limit with `413`. `0` (default)
-  disables the check.
-- Monitoring paths (`/healthz`, `/metrics`, `/docs`) are
-  always exempt from rate limiting.
 
 ### Example
 
@@ -344,8 +339,9 @@ curl -s -X POST localhost:8000/query \
   -H 'X-Request-ID: demo-1' \
   -d '{"question":"What did the cat do?"}'
 
-# metrics
+# metrics (JSON or Prometheus text)
 curl -s localhost:8000/metrics
+curl -s localhost:8000/metrics/prom
 ```
 
 ### Error format
@@ -423,8 +419,8 @@ Three layers, all opt-in and portfolio-friendly:
 
 1. **Structured JSON logs** — every request carries a correlation id
    (`X-Request-ID`); grep one id to see the full story.
-2. **In-process metrics** — `/metrics` exposes counters + latency
-   histograms (ingest, query, tool calls).
+2. **Metrics** — `/metrics` (JSON) and `/metrics/prom` (Prometheus
+   text exposition format) expose counters + latency histograms.
 3. **OpenTelemetry traces** — off by default; enable with
    `OTEL_ENABLED=true` and `pip install 'rag-agent-platform[otel]'`.
 
@@ -472,12 +468,14 @@ backend (Jaeger, Tempo, Honeycomb, Datadog).
 ```bash
 pytest -m "not integration"   # fast, offline (default)
 pytest -m integration         # end-to-end (in-process)
+pytest -m provider            # real LLM provider smoke (needs a key)
 ```
 
-Coverage threshold is 85% (enforced in CI). Type checking runs with mypy
-on every push. Every tool call is boundary-guarded: tool exceptions and
-invalid LLM JSON become `ToolCall(ok=False)` or a corrective feedback
-message — the agent loop never crashes.
+Coverage floor is enforced in CI (`fail_under = 89`; current total ~92%).
+Type checking runs with mypy on every push. Every tool call is
+boundary-guarded: tool exceptions and invalid LLM JSON become
+`ToolCall(ok=False)` or a corrective feedback message — the agent loop
+never crashes.
 
 ## Evaluation
 
@@ -499,7 +497,8 @@ Latest report: [`evals/reports/latest.md`](evals/reports/latest.md)
 | Retrieval MRR@5 | >= 0.60 | **0.7189** |
 | Retrieval recall@5 | >= 0.80 | **0.9667** |
 | Retrieval precision@5 | informational | 0.2533 |
-| p95 latency (retrieve) | <= 2.5 s | **3.168 ms** — see [`docs/benchmarks.md`](docs/benchmarks.md) |
+| p95 latency (retrieve, 12 docs) | <= 2.5 s | **3.168 ms** — see [`docs/benchmarks.md`](docs/benchmarks.md) |
+| p95 latency (retrieve, 1k docs) | informational | **238 ms** — see [`docs/benchmarks.md`](docs/benchmarks.md) § Scale |
 | Cost / 1k queries | <= $0.50 | **$0.079** — projected, see [`docs/benchmarks.md`](docs/benchmarks.md) |
 | Reranker (fake) delta | informational | see [`docs/benchmarks.md`](docs/benchmarks.md) § Reranker delta |
 | Reranker (cross-encoder, real) | informational | **MRR +0.1611**, p50 latency 274 ms — see [`docs/benchmarks.md`](docs/benchmarks.md) § Real cross-encoder reranker |
@@ -549,6 +548,7 @@ mitigation -> prevention -> signals):
 
 Design deep-dives:
 
+- **Portfolio notes (start here):** [`docs/portfolio-notes.md`](docs/portfolio-notes.md)
 - Architecture overview: [`docs/architecture.md`](docs/architecture.md)
 - Benchmarks and cost model: [`docs/benchmarks.md`](docs/benchmarks.md)
 - Delivery semantics (why "exactly-once" = idempotency here):
@@ -561,13 +561,22 @@ Design deep-dives:
 
 ---
 
+## Releases
+
+Tagged versions live under
+[`/releases`](https://github.com/WoodinGlass/rag-agent-platform/releases).
+The current release is **v0.1.0** — the initial public milestone set
+(M1–M9). See [`CHANGELOG.md`](CHANGELOG.md) for details.
+
+---
+
 ## Contributing
 
 Conventional commits. One PR = one milestone checkbox. `pre-commit` runs ruff + mypy.
 
 ---
 
-## Roadmap (production-scale)
+## Roadmap
 
 Each milestone ships **runnable, tested, and documented** code — not stubs.
 
@@ -637,36 +646,36 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Real cross-encoder reranker benchmark (`[rerank]` extra) — see [`docs/benchmarks.md`](docs/benchmarks.md)
 - [x] Kafka consumer group rebalance — hooks + docs in [`docs/kafka-rebalance.md`](docs/kafka-rebalance.md)
 
-### M9 — Post-MVP polish
+### M9 — Post-MVP polish [done]
 
-- [x] **M9.1** Real LLM provider path (OpenAI-compatible + Anthropic)
+- [x] Real LLM provider path (OpenAI-compatible + Anthropic)
   - `OpenAILLM` (base_url, max_tokens), `AnthropicLLM`, `get_llm()`
   - `GROQ_DEFAULT_MODEL = qwen/qwen3.8-27b`
   - Provider smoke test (marker `provider`, self-skips without key)
   - `.github/workflows/provider-smoke.yml` (manual + weekly)
-- [x] **M9.2** Documentation polish
+- [x] Documentation polish
   - `docs/provider-smoke.md` (evidence + model-selection reasoning)
   - `docs/limitations.md` (honest list of what is not shipped)
   - README: provider-smoke badge + links
-- [x] **M9.3** Qdrant adapter
-  - [x] **M9.3a** `app/rag/qdrant_store.py` + `[qdrant]` extra
-  - [x] **M9.3b** Config (`qdrant_*`) + `get_store()` + `main.py` wiring
-  - [x] **M9.3c** Offline tests (mock client, 19 tests)
-  - [x] **M9.3d** Integration test skip-friendly (real Qdrant service)
-  - [x] **M9.3e** Docs + CHANGELOG + commit final
-- [x] **M9.4** Rate limiting + max body size — opt-in token bucket + Content-Length cap
-- [x] **M9.5** Coverage `core/logging.py` 45% → 100% (threshold raised to 89)
-- [x] **M9.6** Benchmark at 1k documents (synthetic) — see [`docs/benchmarks.md`](docs/benchmarks.md) § Scale
-- [x] **M9.7** Prometheus exposition format at `/metrics/prom`
-- [x] **M9.8** Preview assets (SVG) in README
+- [x] Qdrant adapter
+  - [x] `app/rag/qdrant_store.py` + `[qdrant]` extra
+  - [x] Config (`qdrant_*`) + `get_store()` + `main.py` wiring
+  - [x] Offline tests (mock client, 19 tests)
+  - [x] Integration test skip-friendly (real Qdrant service)
+  - [x] Docs + CHANGELOG + commit final
+- [x] Rate limiting + max body size — opt-in token bucket + Content-Length cap
+- [x] Coverage `core/logging.py` 45% → 100% (threshold raised to 89)
+- [x] Benchmark at 1k documents (synthetic) — see [`docs/benchmarks.md`](docs/benchmarks.md) § Scale
+- [x] Prometheus exposition format at `/metrics/prom`
+- [x] Preview assets (SVG) in README
 
-## M10+ — Future (no schedule)
+### Future work (no schedule)
 
-- [ ] Static membership (KIP-345) support
-- [ ] Cooperative-sticky assignor integration test with a real broker
-- [ ] Cross-partition transactional writes (only if the sink is Kafka)
-- [ ] OTel collector with a real backend (Jaeger / Tempo)
-- [ ] Live deployment (Fly.io / Railway)
+No further milestones are scheduled. Ideas that came up during
+development but were deliberately **not** implemented are recorded in
+[`docs/limitations.md`](docs/limitations.md) and
+[`docs/portfolio-notes.md`](docs/portfolio-notes.md) § "What I would do
+next". Open to discussion via issues.
 
 ---
 
