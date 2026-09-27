@@ -61,6 +61,21 @@ Versioning: [SemVer](https://semver.org/).
 - 4 new tests (exporter selection, enable path)
 
 **M9 — Post-MVP polish**
+- **M9.6 — Scale benchmark at 1k documents**
+  - `benchmarks/synthetic_corpus.py`: deterministic generator
+    (seed=42, `template=v1`). Docs carry a unique 3-token signature
+    (`sig-N tag-N key-N`); a 1-token version was tested first and
+    scored 0.76 hit-rate — a bag-of-tokens embedder needs
+    discriminative anchors, not a single token.
+  - `benchmarks/scale_benchmark.py`: ingest + retrieve at N docs;
+    maps fixture ids to pipeline content-derived doc_ids before
+    computing retrieval metrics
+  - `benchmarks/results/scale_1000.{json,md}` committed
+  - `tests/unit/test_benchmarks_synthetic.py`: 17 tests
+  - `docs/benchmarks.md`: "Scale: 1k documents" section with honest
+    reading (linear-ish ingest, sub-250 ms p95 retrieve at 1k,
+    explicit "not a load test / not an ANN benchmark")
+  - README: roadmap M9.6 marked done
 - **M9.4 — Rate limiting + max body size**
   - `app/api/limits.py`: `TokenBucketLimiter` (thread-safe,
     injectable clock, lazy prune) + `check_content_length`

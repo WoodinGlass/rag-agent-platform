@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-09-27T21:29:34+00:00",
+  "config": {
+    "n_docs": 1000,
+    "n_queries": 200,
+    "seed": 42,
+    "k": 5,
+    "chunk_size": 200,
+    "embedder": "fake",
+    "template_version": "v1"
+  },
+  "ingest": {
+    "total_ms": 1060.744,
+    "per_doc_ms": 1.0607,
+    "docs_per_sec": 942.7
+  },
+  "retrieve": {
+    "latency_ms": {
+      "mean": 154.994,
+      "p50": 119.993,
+      "p90": 217.163,
+      "p95": 237.981,
+      "p99": 415.619,
+      "min": 101.788,
+      "max": 487.937
+    },
+    "quality": {
+      "hit_rate": 0.96,
+      "mrr": 0.9163,
+      "recall": 0.96
+    }
+  }
+}
