@@ -21,6 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 llm         = ["openai>=1.30", "anthropic>=0.30", "langchain>=0.2", "langgraph>=0.1"]
 vector      = ["chromadb>=0.5"]
+qdrant      = ["qdrant-client>=1.10"]
 agents      = ["langchain-openai>=0.1", "langchain-anthropic>=0.1"]
 langgraph   = ["langgraph>=0.2"]
 kafka       = ["kafka-python>=2.0"]
