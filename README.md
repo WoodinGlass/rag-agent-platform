@@ -177,8 +177,12 @@ Guarantees:
   skipped, so broker redelivery does not double-ingest.
 - **Retry with backoff.** Handler failures retry up to
   `STREAMING_MAX_RETRIES`; on give-up the event is not committed.
-- **One event in flight.** Predictable memory; prefetch is a future
-  knob, not a hidden default.
+- **One event in flight.** Predictable memory; prefetch is opt-in
+  (`STREAMING_PREFETCH_N`).
+- **Effectively-once, not exactly-once.** Delivery is at-least-once;
+  correctness comes from idempotent ingestion (`sha256+version`) plus
+  a bounded dedup window. Rationale and failure modes:
+  [`docs/exactly-once.md`](docs/exactly-once.md).
 
 Adapters:
 
@@ -409,6 +413,8 @@ mitigation -> prevention -> signals):
 
 Architecture overview: [`docs/architecture.md`](docs/architecture.md).
 Benchmarks and cost model: [`docs/benchmarks.md`](docs/benchmarks.md).
+Delivery semantics (why "exactly-once" = idempotency here):
+[`docs/exactly-once.md`](docs/exactly-once.md).
 
 ---
 
@@ -473,12 +479,20 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] Streaming ingestion — `EventSource` protocol, `InMemoryQueueSource` (offline),
       `KafkaEventSource` (opt-in `[kafka]`), `StreamingIngestor` (at-least-once + dedup)
 
-### M7+ (backlog — post-MVP)
+### M7 — Post-MVP [in progress]
 
-- [ ] S3 event source adapter (`[s3]` extra)
-- [ ] Multi-partition parallel ingestors
-- [ ] Exactly-once via Kafka transactions
-- [ ] Prefetch queue for higher throughput
+- [x] Prefetch queue for higher throughput
+- [x] S3 event source adapter (`[s3]` extra)
+- [x] Multi-partition parallel ingestors
+- [x] Exactly-once — documented as "effectively-once via idempotency";
+      see [`docs/exactly-once.md`](docs/exactly-once.md)
+
+### M8+ (backlog)
+
+- [ ] Durable dedup state (KV store or compacted topic)
+- [ ] Kafka consumer group rebalance (dynamic partitions)
+- [ ] Bounded prefetch across partitions
+- [ ] Real cross-encoder reranker benchmark (`[rerank]` extra)
 
 ---
 

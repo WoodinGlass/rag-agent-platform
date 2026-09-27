@@ -66,6 +66,14 @@ Versioning: [SemVer](https://semver.org/).
   - backpressure preserved; commit delegates to source
   - `StreamingIngestor.run_with_prefetch(prefetch_n=N)`
   - config: `streaming_prefetch_n` (0 disables, default)
+- **M7.4 — Exactly-once (documented honestly)**
+  - `docs/exactly-once.md`: why "exactly-once" for a Kafka->vector-store
+    pipeline is idempotency + dedup, not Kafka transactions
+  - Reference to existing code: `sha256+version` doc ids, bounded dedup
+    window, at-least-once commit semantics
+  - Failure-mode table with the guarantees we do and do not claim
+  - When Kafka transactions *would* be the right tool (Kafka->Kafka)
+  - No transaction producer added (deliberate; would be misdirection)
 - **M7.3 — Multi-partition parallel ingestors**
   - `app/streaming/partitioned.py`: `PartitionedSource` protocol +
     `InMemoryPartitionedSource` (offline)
