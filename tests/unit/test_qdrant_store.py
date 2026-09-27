@@ -91,10 +91,10 @@ class _FakeQdrantClient:
         for p in points:
             store[str(p.id)] = (list(p.vector), dict(p.payload))
 
-    def search(
+    def query_points(
         self,
         collection_name: str,
-        query_vector,
+        query,
         limit: int,
         query_filter=None,
         with_payload: bool = True,
@@ -102,7 +102,7 @@ class _FakeQdrantClient:
         self.search_calls.append(
             {
                 "collection_name": collection_name,
-                "query_vector": list(query_vector),
+                "query": list(query),
                 "limit": limit,
                 "query_filter": query_filter,
                 "with_payload": with_payload,
@@ -111,7 +111,7 @@ class _FakeQdrantClient:
         store = self._collections.get(collection_name, {})
         results: list[_Point] = []
         for pid, (vec, payload) in store.items():
-            score = sum(a * b for a, b in zip(query_vector, vec))
+            score = sum(a * b for a, b in zip(query, vec))
             results.append(_Point(pid, payload, score=score))
         results.sort(key=lambda p: p.score or 0.0, reverse=True)
 
@@ -124,7 +124,11 @@ class _FakeQdrantClient:
                     val = getattr(match, "value", None)
                     results = [p for p in results if p.payload.get(key) == val]
 
-        return results[:limit]
+        class _QueryResponse:
+            def __init__(self, points):
+                self.points = points
+
+        return _QueryResponse(results[:limit])
 
     def scroll(
         self,

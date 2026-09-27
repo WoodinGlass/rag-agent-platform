@@ -61,6 +61,35 @@ Versioning: [SemVer](https://semver.org/).
 - 4 new tests (exporter selection, enable path)
 
 **M9 — Post-MVP polish**
+- **M9.3 — Qdrant adapter**
+  - **M9.3a** `app/rag/qdrant_store.py`: VectorStore backed by Qdrant
+    - deterministic UUIDv5 from `chunk_id` (Qdrant requires UUID / int
+      point ids; our ids contain colons)
+    - collection created with explicit dim + cosine distance
+    - payload indexes on `doc_id` and `tenant_id` for fast filters
+    - tenant filter via `FieldCondition`; `has_doc` via `scroll`
+    - lazy import: `qdrant-client` only needed when used
+    - `pyproject.toml`: new `[qdrant]` extra
+  - **M9.3b** Wiring
+    - `config`: `qdrant_url`, `qdrant_collection`, `qdrant_dim`, `qdrant_api_key`
+    - `store.get_store()`: `qdrant` branch (lazy import)
+    - `main._build_stack()`: qdrant branch reads `settings.*`
+    - `.env.example`: `QDRANT_*` documented
+  - **M9.3c** Offline tests (`tests/unit/test_qdrant_store.py`)
+    - 19 tests, injected fake `qdrant_client` (no service required)
+    - covers: UUID determinism, collection + payload indexes, upsert
+      counting + idempotency, search with/without tenant filter,
+      `has_doc` via scroll, empty upsert no-op, import guard
+  - **M9.3d** Integration tests (`tests/integration/test_qdrant_store_live.py`)
+    - 6 tests, marker `integration`, self-skips without qdrant-client
+      or an unreachable service
+    - unique collection per test; cleanup via `contextlib.suppress`
+    - full cycle: upsert / query / has_doc / idempotency; tenant
+      isolation; end-to-end `RagPipeline` with `QdrantStore`
+    - `ci.yml`: qdrant service container + wait-for-ready + `QDRANT_URL`
+      env; `[qdrant]` extra installed so the live tests run in CI
+  - README: repository layout + design-decision reference updated;
+    "Chroma → Qdrant" is now fully backed by code
 - **M9.2 — Documentation polish**
   - `docs/provider-smoke.md`: raw evidence + model-selection reasoning
     (gpt-oss-20b native tool conflict; allam-2-7b too small; qwen3.8-27b

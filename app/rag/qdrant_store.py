@@ -156,13 +156,17 @@ class QdrantStore(VectorStore):
                 ]
             )
 
-        results = self._client.search(
+        # `query_points` is the current API (qdrant-client >= 1.10).
+        # The older `search` method was deprecated in 1.10 and removed in
+        # 1.12; keeping `query_points` avoids the attr-defined mypy error.
+        response = self._client.query_points(
             collection_name=self._collection,
-            query_vector=[float(x) for x in embedding],
+            query=[float(x) for x in embedding],
             limit=k,
             query_filter=query_filter,
             with_payload=True,
         )
+        results = response.points
 
         hits: list[Hit] = []
         for r in results:
