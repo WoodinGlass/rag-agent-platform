@@ -657,7 +657,7 @@ Each milestone ships **runnable, tested, and documented** code — not stubs.
 - [x] **M9.4** Rate limiting + max body size — opt-in token bucket + Content-Length cap
 - [x] **M9.5** Coverage `core/logging.py` 45% → 100% (threshold raised to 89)
 - [x] **M9.6** Benchmark at 1k documents (synthetic) — see [`docs/benchmarks.md`](docs/benchmarks.md) § Scale
-- [ ] **M9.7** Prometheus exposition format at `/metrics/prom`
+- [x] **M9.7** Prometheus exposition format at `/metrics/prom`
 - [x] **M9.8** Preview assets (SVG) in README
 
 ## M10+ — Future (no schedule)
